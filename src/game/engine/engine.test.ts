@@ -5,10 +5,11 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { applyAction, createInitialState, getRoleViews, getSpectatorView, step, type SenderRole } from "./index";
-import { BOAT, MAP, MISSION, NETWORK, RADIO, SONAR, TARGET, WEATHER } from "../config";
+import { BOAT, HAZARDS, MAP, MISSION, NETWORK, RADIO, SONAR, TARGET, WEATHER } from "../config";
 import type { CurrentForecastEntry, GameState, PlayerAction, SectorId, Vec2 } from "../types";
 import { ALL_SECTORS, sectorCenter } from "../sectors";
 import { MARKERS, signalStrength } from "./actions";
+import { LAYOUT } from "./layout";
 
 const DT = 1000 / NETWORK.simHz;
 const fresh = (): GameState => createInitialState({ seed: 1, gameId: "test" });
@@ -31,6 +32,14 @@ function drive(state: GameState, actions: PlayerAction[], steps: number): GameSt
 /** Replace the ocean current (and optionally the forecast). */
 function withCurrent(state: GameState, current: Vec2, forecast: CurrentForecastEntry[] = []): GameState {
   return { ...state, weather: { ...state.weather, current, forecast } };
+}
+
+/**
+ * No hazards and the Gull parked off the map: for tests about movement alone, so a seeded reef
+ * or an early rescue can't end the mission halfway through the path being checked.
+ */
+function openWater(state: GameState): GameState {
+  return { ...state, hazards: [], target: { ...state.target, position: { x: -1, y: -1 } } };
 }
 
 /** Jump the mission clock without simulating (for cooldown boundaries). */
@@ -86,6 +95,117 @@ describe("initial state", () => {
 
   test("is deterministic for the same seed", () => {
     assert.deepEqual(fresh(), fresh());
+  });
+});
+
+describe("seeded layout", () => {
+  // Every seed the host could plausibly use: a run of small ones plus edge-case values.
+  const SEEDS = [...Array.from({ length: 200 }, (_, i) => i), 2 ** 31 - 1, 2 ** 32 - 1, 123_456_789, 987_654_321];
+  const layoutFor = (seed: number) => createInitialState({ seed, gameId: `seed-${seed}` });
+  const d = (a: Vec2, b: Vec2) => Math.hypot(a.x - b.x, a.y - b.y);
+
+  test("different seeds give different maps", () => {
+    const a = layoutFor(1);
+    const b = layoutFor(2);
+    assert.notDeepEqual(a.hazards, b.hazards);
+    assert.notDeepEqual(a.target, b.target);
+    assert.notDeepEqual(a.weather, b.weather);
+  });
+
+  test("every seed places a full, valid, non-overlapping hazard field away from the start and the Gull", () => {
+    for (const seed of SEEDS) {
+      const s = layoutFor(seed);
+      const where = `seed ${seed}`;
+      assert.equal(s.hazards.length, HAZARDS.count, `${where}: hazard count`);
+      assert.equal(new Set(s.hazards.map((h) => h.id)).size, HAZARDS.count, `${where}: ids unique`);
+      assert.ok(d(s.target.position, MISSION.boatStart) >= LAYOUT.minTargetDistance, `${where}: Gull too close to start`);
+      assert.ok(inside(s.target.position), `${where}: Gull off the map`);
+
+      for (const h of s.hazards) {
+        assert.ok(h.radius >= HAZARDS.minRadius && h.radius <= HAZARDS.maxRadius, `${where}: ${h.id} radius`);
+        assert.ok(inside(h.position), `${where}: ${h.id} off the map`);
+        assert.equal(h.revealed, false);
+        assert.equal(h.lastHitAtMs, null);
+        assert.ok(d(h.position, MISSION.boatStart) >= LAYOUT.startClearance + h.radius, `${where}: ${h.id} on the start`);
+        assert.ok(
+          d(h.position, s.target.position) >= TARGET.rescueRadius + LAYOUT.targetClearance + h.radius,
+          `${where}: ${h.id} crowds the Gull`,
+        );
+        for (const other of s.hazards) {
+          if (other.id === h.id) continue;
+          assert.ok(d(h.position, other.position) >= h.radius + other.radius + LAYOUT.hazardGap, `${where}: ${h.id} overlaps ${other.id}`);
+        }
+      }
+    }
+
+    function inside(p: Vec2) {
+      return p.x >= LAYOUT.margin && p.x <= 1 - LAYOUT.margin && p.y >= LAYOUT.margin && p.y <= 1 - LAYOUT.margin;
+    }
+  });
+
+  test("every seed leaves a hazard-free channel from the start to the Gull", () => {
+    // Independent of how layout.ts builds its channel: flood-fill a grid of water cells that keep
+    // `clearance` from every hazard rim and check the Gull's cell is reachable from the start.
+    const N = 80;
+    const clearance = 0.02;
+    const cell = (p: Vec2) => [Math.min(N - 1, Math.floor(p.x * N)), Math.min(N - 1, Math.floor(p.y * N))] as const;
+    for (const seed of SEEDS) {
+      const s = layoutFor(seed);
+      const free = (cx: number, cy: number) => {
+        const c = { x: (cx + 0.5) / N, y: (cy + 0.5) / N };
+        return s.hazards.every((h) => d(c, h.position) > h.radius + clearance);
+      };
+      const [sx, sy] = cell(MISSION.boatStart);
+      const [tx, ty] = cell(s.target.position);
+      const seen = new Set<number>([sy * N + sx]);
+      const queue: [number, number][] = [[sx, sy]];
+      for (let next = queue.shift(); next; next = queue.shift()) {
+        const [x, y] = next;
+        for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]] as const) {
+          if (nx < 0 || ny < 0 || nx >= N || ny >= N || seen.has(ny * N + nx) || !free(nx, ny)) continue;
+          seen.add(ny * N + nx);
+          queue.push([nx, ny]);
+        }
+      }
+      assert.ok(seen.has(ty * N + tx), `seed ${seed}: no safe channel to the Gull`);
+    }
+  });
+
+  test("every seed has a sorted forecast of several in-range current shifts", () => {
+    const strength = (v: Vec2) => Math.hypot(v.x, v.y);
+    for (const seed of SEEDS) {
+      const w = layoutFor(seed).weather;
+      const where = `seed ${seed}`;
+      assert.ok(w.forecast.length >= 3, `${where}: only ${w.forecast.length} shifts`);
+      assert.ok(strength(w.current) <= WEATHER.maxCurrent + 1e-12, `${where}: opening current too strong`);
+      let prev = 0;
+      for (const entry of w.forecast) {
+        assert.ok(entry.atMs > prev, `${where}: forecast not sorted`);
+        assert.ok(entry.atMs <= MISSION.durationMs - LAYOUT.lastShiftBeforeEndMs, `${where}: shift too late`);
+        assert.ok(Number.isInteger(entry.atMs), `${where}: atMs should be whole ms`);
+        assert.ok(strength(entry.current) <= WEATHER.maxCurrent + 1e-12, `${where}: shift too strong`);
+        prev = entry.atMs;
+      }
+      for (const x of [w.windStrength, w.stormIntensity]) assert.ok(x >= 0 && x <= 1, `${where}: 0..1 value out of range`);
+      assert.ok(w.windDirection >= 0 && w.windDirection < 2 * Math.PI, `${where}: wind direction`);
+    }
+  });
+
+  test("the weather view shows only the forecast within forecastHorizonMs; the spectator sees all of it", () => {
+    const s = started();
+    const full = s.weather.forecast;
+    assert.ok(full.length >= 3);
+    for (const elapsedMs of [0, 10_000, 40_000]) {
+      const view = getRoleViews(at(s, elapsedMs)).weather;
+      assert.deepEqual(
+        view.weather.forecast,
+        full.filter((e) => e.atMs <= elapsedMs + WEATHER.forecastHorizonMs),
+        `at ${elapsedMs} ms`,
+      );
+      assert.deepEqual(getSpectatorView(at(s, elapsedMs)).weather.forecast, full);
+    }
+    // Something is actually hidden at the start, so the horizon is doing work.
+    assert.ok(getRoleViews(s).weather.weather.forecast.length < full.length);
   });
 });
 
@@ -205,7 +325,7 @@ describe("step", () => {
     ] as const;
 
     for (const edge of edges) {
-      const base = started();
+      const base = openWater(started());
       let s: GameState = { ...base, boat: { ...base.boat, heading: edge.heading } };
       s = captain(s, { type: "SET_THROTTLE", throttle: 1 });
       const steps = Math.round(20_000 / DT); // 20 simulated seconds
@@ -350,7 +470,7 @@ describe("weather", () => {
       { name: "south-west", current: { x: -m, y: m }, corner: { x: min, y: max } },
     ];
     for (const { name, current, corner } of corners) {
-      let s = withCurrent(started(), current);
+      let s = withCurrent(openWater(started()), current);
       const steps = Math.round(30_000 / DT); // 30 s at maxCurrent covers > half the map
       for (let i = 0; i < steps; i++) {
         s = step(s, DT).state;
@@ -366,7 +486,7 @@ describe("weather", () => {
   test("determinism holds with a current, forecast and shield in play", () => {
     const run = () => {
       let s = createInitialState({ seed: 7, gameId: "det-weather" });
-      s = applyAction(s, { type: "START_GAME" }, "host").state;
+      s = openWater(applyAction(s, { type: "START_GAME" }, "host").state);
       s = withCurrent(s, { x: 0.012, y: -0.004 }, [
         { atMs: 3_000, current: { x: -0.02, y: 0.01 } },
         { atMs: 3_010, current: { x: 0.005, y: 0.025 } },
