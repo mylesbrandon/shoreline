@@ -35,7 +35,7 @@ export function JoinForm() {
         placeholder="CODE"
         aria-label="Room code"
         autoCapitalize="characters"
-        className="h-14 min-w-0 flex-1 rounded-xl border border-hull bg-navy px-4 text-center font-mono text-2xl tracking-[0.4em] text-foam placeholder:text-hull focus:border-teal focus:outline-none"
+        className="h-14 w-0 min-w-0 flex-1 rounded-xl border border-hull bg-navy px-4 text-center font-mono text-2xl tracking-[0.4em] text-foam placeholder:text-hull focus:border-teal focus:outline-none"
       />
       <button
         type="submit"

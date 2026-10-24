@@ -23,14 +23,14 @@ export function CaptainControls({ boat, onAction, disabled = false }: CaptainCon
   const heading = ((boat.heading * 180 / Math.PI) % 360 + 360) % 360;
   return <div className="instrument grid gap-4 rounded-2xl p-4">
     <div className="flex items-center justify-between border-b border-hull pb-3">
-      <div><p className="font-mono text-[10px] uppercase tracking-[0.25em] text-mist">Helm / manual</p>
-        <p className="text-lg font-semibold">{disabled ? "Helm standing by" : "You have the helm"}</p></div>
+      <div><p className="font-mono text-[10px] uppercase tracking-[0.25em] text-mist">Jet ski</p>
+        <p className="text-lg font-semibold">{disabled ? "Waiting for the whistle" : "You're driving"}</p></div>
       <div className="text-right font-mono"><p className="text-xl text-teal">{(Math.round(heading) % 360).toString().padStart(3, "0")}°</p>
         <p className="text-xs text-mist">{Math.round(boat.speed / BOAT.maxSpeed * 100)}% speed</p></div>
     </div>
     <label className="grid gap-1">
       <span className="flex justify-between font-mono text-[11px] uppercase tracking-wider text-mist">
-        <span>← Port</span><span className="text-teal">Rudder {(disabled ? 0 : rudder).toFixed(2)}</span><span>Starboard →</span>
+        <span>← Port</span><span className="text-teal">Steer {(disabled ? 0 : rudder).toFixed(2)}</span><span>Starboard →</span>
       </span>
       <input aria-label="Rudder" aria-describedby="rudder-help" className="helm-range min-h-12" style={{ opacity: disabled ? 0.4 : 1 }}
         type="range" min={-1} max={1} step={0.05} disabled={disabled} value={disabled ? 0 : rudder}
@@ -47,7 +47,7 @@ export function CaptainControls({ boat, onAction, disabled = false }: CaptainCon
     </label>
     <label className="grid gap-1">
       <span className="flex justify-between font-mono text-[11px] uppercase tracking-wider text-mist">
-        <span>Stop</span><span className="text-amber">Engine {Math.round(throttleValue * 100)}%</span><span>Full ahead</span>
+        <span>Idle</span><span className="text-amber">Throttle {Math.round(throttleValue * 100)}%</span><span>Full throttle</span>
       </span>
       <input aria-label="Throttle" className="helm-range min-h-12" style={{ opacity: disabled ? 0.4 : 1 }}
         type="range" min={0} max={1} step={0.05} disabled={disabled} value={throttleValue}

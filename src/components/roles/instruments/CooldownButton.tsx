@@ -11,16 +11,33 @@ export interface CooldownButtonProps {
   cooldownMs: number;
   onPress: () => void;
   disabled?: boolean;
-  tone?: "cyan" | "amber" | "brass";
+  tone?: "cyan" | "amber" | "brass" | "hazard";
+  /** "xl" is the 88 px thumb-zone button the timing stations use. */
+  size?: "md" | "xl";
+  /** Extra glow when pressing now would matter most (e.g. a big gust is about to hit). */
+  urgent?: boolean;
 }
 
 const TONES = {
   cyan: "border-cyan text-cyan shadow-[0_0_24px_-6px_var(--color-cyan)]",
   amber: "border-amber text-amber shadow-[0_0_24px_-6px_var(--color-amber)]",
   brass: "border-brass text-brass shadow-[0_0_24px_-6px_var(--color-brass)]",
+  hazard: "border-hazard text-hazard shadow-[0_0_24px_-6px_var(--color-hazard)]",
 };
 
-export function CooldownButton({ label, nowMs, readyAtMs, cooldownMs, onPress, disabled, tone = "cyan" }: CooldownButtonProps) {
+const SIZES = { md: "h-16 text-lg", xl: "h-[88px] text-2xl" };
+
+export function CooldownButton({
+  label,
+  nowMs,
+  readyAtMs,
+  cooldownMs,
+  onPress,
+  disabled,
+  tone = "cyan",
+  size = "md",
+  urgent = false,
+}: CooldownButtonProps) {
   const remaining = Math.max(0, readyAtMs - nowMs);
   const cooling = remaining > 0;
   const ready = !cooling && !disabled;
@@ -33,7 +50,7 @@ export function CooldownButton({ label, nowMs, readyAtMs, cooldownMs, onPress, d
       disabled={!ready}
       onClick={onPress}
       aria-label={cooling ? `${label}, ready in ${caption}` : label}
-      className={`relative h-16 min-h-11 w-full overflow-hidden rounded-xl border-2 bg-navy font-display text-lg font-semibold uppercase tracking-[0.2em] transition active:scale-[0.98] disabled:opacity-60 ${TONES[tone]}`}
+      className={`relative min-h-11 w-full overflow-hidden rounded-xl border-2 bg-navy font-display font-semibold uppercase tracking-[0.2em] transition active:scale-[0.98] disabled:opacity-60 ${SIZES[size]} ${TONES[tone]} ${ready && urgent ? "animate-pulse shadow-[0_0_40px_-4px_currentColor]" : ""}`}
     >
       <span
         className="absolute inset-y-0 left-0 bg-current opacity-15"

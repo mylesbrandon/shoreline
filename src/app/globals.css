@@ -1,21 +1,22 @@
 @import "tailwindcss";
 
 /*
- * Stormline design tokens. Use these via Tailwind classes (bg-abyss, text-teal, border-hull…)
+ * Red Flag Day design tokens (sunny beach: deep-water panels, sand, lifeguard red, buoy yellow).
+ * Token names are kept from the original theme so every component re-themes without edits. Use these via Tailwind classes (bg-abyss, text-teal, border-hull…)
  * or via var(--color-*) in canvas code (see components/ocean/palette.ts — keep them in sync).
  */
 @theme {
-  --color-abyss: #040a16;
-  --color-navy: #081429;
-  --color-deep: #0e1f3d;
-  --color-hull: #1c3358;
-  --color-foam: #e6f1ff;
-  --color-mist: #8aa2c8;
-  --color-teal: #2dd4bf;
-  --color-cyan: #22d3ee;
-  --color-amber: #f5a524;
-  --color-hazard: #ef4444;
-  --color-brass: #d6b16a;
+  --color-abyss: #08304a;
+  --color-navy: #0d4462;
+  --color-deep: #1f7a99;
+  --color-hull: #3a7f97;
+  --color-foam: #ffffff;
+  --color-mist: #b9dfe6;
+  --color-teal: #4cc9c0;
+  --color-cyan: #8be3ef;
+  --color-amber: #ffc83d;
+  --color-hazard: #e8412f;
+  --color-brass: #f3d9a4;
 
   --font-display: var(--font-chakra), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-plex-mono), ui-monospace, monospace;
@@ -34,17 +35,17 @@ body {
 
 body {
   background-image:
-    radial-gradient(1200px 600px at 50% -10%, rgb(34 211 238 / 0.08), transparent 60%),
-    radial-gradient(800px 500px at 100% 110%, rgb(45 212 191 / 0.05), transparent 60%);
+    radial-gradient(1200px 600px at 50% -10%, rgb(255 236 179 / 0.16), transparent 60%),
+    radial-gradient(800px 500px at 100% 110%, rgb(76 201 192 / 0.12), transparent 60%);
   min-height: 100dvh;
 }
 
 /* Instrument panel surface used by stations */
 .instrument {
-  background: linear-gradient(180deg, rgb(14 31 61 / 0.9), rgb(8 20 41 / 0.95));
-  border: 1px solid rgb(45 212 191 / 0.18);
+  background: linear-gradient(180deg, rgb(17 84 117 / 0.92), rgb(10 56 84 / 0.96));
+  border: 1px solid rgb(243 217 164 / 0.28);
   box-shadow:
-    inset 0 1px 0 rgb(230 241 255 / 0.04),
+    inset 0 1px 0 rgb(255 255 255 / 0.08),
     0 10px 30px -12px rgb(0 0 0 / 0.6);
 }
 
@@ -59,12 +60,12 @@ body {
 .helm-range::-webkit-slider-runnable-track {
   height: 0.5rem;
   border-radius: 9999px;
-  background: linear-gradient(90deg, rgb(45 212 191 / 0.25), rgb(34 211 238 / 0.45));
+  background: linear-gradient(90deg, rgb(243 217 164 / 0.35), rgb(76 201 192 / 0.6));
 }
 .helm-range::-moz-range-track {
   height: 0.5rem;
   border-radius: 9999px;
-  background: linear-gradient(90deg, rgb(45 212 191 / 0.25), rgb(34 211 238 / 0.45));
+  background: linear-gradient(90deg, rgb(243 217 164 / 0.35), rgb(76 201 192 / 0.6));
 }
 .helm-range::-webkit-slider-thumb {
   appearance: none;
@@ -74,7 +75,7 @@ body {
   border-radius: 9999px;
   background: var(--color-foam);
   border: 3px solid var(--color-teal);
-  box-shadow: 0 0 16px rgb(45 212 191 / 0.6);
+  box-shadow: 0 0 16px rgb(76 201 192 / 0.6);
 }
 .helm-range::-moz-range-thumb {
   width: 2.5rem;
@@ -82,7 +83,7 @@ body {
   border-radius: 9999px;
   background: var(--color-foam);
   border: 3px solid var(--color-teal);
-  box-shadow: 0 0 16px rgb(45 212 191 / 0.6);
+  box-shadow: 0 0 16px rgb(76 201 192 / 0.6);
 }
 
 @keyframes sonar-sweep {

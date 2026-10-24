@@ -2,25 +2,15 @@
  * Boat-centered PPI drawing for the sonar station. OWNER: Developer 4.
  * Renders only what the view already revealed — no ping rules, no hidden hazards.
  *
- * Theme hexes match tokens in src/app/globals.css (not imported from ocean/ — Dev 3 owns that).
+ * Colours come from the shared canvas palette (components/ocean/palette.ts).
  */
 import { SONAR } from "@/game/config";
 import type { HazardKind, Marker, SonarContact, SonarView, Vec2 } from "@/game/types";
+import { PALETTE } from "@/components/ocean/palette";
 import { SCOPE_DISPLAY_RANGE } from "./scope-coords";
 
-const C = {
-  abyss: "#040a16",
-  navy: "#081429",
-  deep: "#0e1f3d",
-  hull: "#1c3358",
-  foam: "#e6f1ff",
-  mist: "#8aa2c8",
-  teal: "#2dd4bf",
-  cyan: "#22d3ee",
-  amber: "#f5a524",
-  hazard: "#ef4444",
-  brass: "#d6b16a",
-} as const;
+// One palette for every canvas (the old ownership split is gone), so the drone camera re-themes with the rest.
+const C = PALETTE;
 
 const TAU = Math.PI * 2;
 const SWEEP_MS = 3_200;
@@ -106,7 +96,7 @@ export function drawSonarScope(
   // Inner rim + cardinals sit on top of the clip so they stay crisp.
   ctx.beginPath();
   ctx.arc(cx, cy, well, 0, TAU);
-  ctx.strokeStyle = "rgba(34, 211, 238, 0.55)";
+  ctx.strokeStyle = "rgba(139, 227, 239, 0.55)";
   ctx.lineWidth = Math.max(1.5, size * 0.008);
   ctx.stroke();
 
@@ -126,14 +116,14 @@ function drawRangeRings(
     if (r > well) continue;
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, TAU);
-    ctx.strokeStyle = t === 1 ? "rgba(34, 211, 238, 0.38)" : "rgba(34, 211, 238, 0.14)";
+    ctx.strokeStyle = t === 1 ? "rgba(139, 227, 239, 0.38)" : "rgba(139, 227, 239, 0.14)";
     ctx.lineWidth = t === 1 ? 1.6 : 1;
     ctx.stroke();
   }
 }
 
 function drawCrosshairs(ctx: CanvasRenderingContext2D, cx: number, cy: number, well: number): void {
-  ctx.strokeStyle = "rgba(34, 211, 238, 0.12)";
+  ctx.strokeStyle = "rgba(139, 227, 239, 0.12)";
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(cx, cy - well);
@@ -148,7 +138,7 @@ function drawScanlines(ctx: CanvasRenderingContext2D, cx: number, cy: number, we
   ctx.beginPath();
   ctx.arc(cx, cy, well, 0, TAU);
   ctx.clip();
-  ctx.strokeStyle = "rgba(34, 211, 238, 0.035)";
+  ctx.strokeStyle = "rgba(139, 227, 239, 0.035)";
   ctx.lineWidth = 1;
   const drift = (nowMs / 80) % 6;
   for (let y = cy - well + drift; y < cy + well; y += 6) {
@@ -174,8 +164,8 @@ function drawSweep(
   ctx.rotate(angle);
 
   const trail = ctx.createRadialGradient(0, 0, 0, 0, 0, well);
-  trail.addColorStop(0, "rgba(34, 211, 238, 0.22)");
-  trail.addColorStop(1, "rgba(34, 211, 238, 0)");
+  trail.addColorStop(0, "rgba(139, 227, 239, 0.22)");
+  trail.addColorStop(1, "rgba(139, 227, 239, 0)");
   ctx.fillStyle = trail;
   ctx.beginPath();
   ctx.moveTo(0, 0);
@@ -184,8 +174,8 @@ function drawSweep(
   ctx.fill();
 
   const blade = ctx.createRadialGradient(0, 0, 0, 0, 0, well);
-  blade.addColorStop(0, "rgba(34, 211, 238, 0.4)");
-  blade.addColorStop(1, "rgba(34, 211, 238, 0)");
+  blade.addColorStop(0, "rgba(139, 227, 239, 0.4)");
+  blade.addColorStop(1, "rgba(139, 227, 239, 0)");
   ctx.fillStyle = blade;
   ctx.beginPath();
   ctx.moveTo(0, 0);
@@ -223,13 +213,13 @@ function drawPingRing(
 
   ctx.beginPath();
   ctx.arc(screen.x, screen.y, r, 0, TAU);
-  ctx.strokeStyle = `rgba(34, 211, 238, ${0.85 * (1 - t)})`;
+  ctx.strokeStyle = `rgba(139, 227, 239, ${0.85 * (1 - t)})`;
   ctx.lineWidth = 2.5;
   ctx.stroke();
 
   ctx.beginPath();
   ctx.arc(screen.x, screen.y, Math.min(well, r * 0.92), 0, TAU);
-  ctx.strokeStyle = `rgba(45, 212, 191, ${0.2 * (1 - t)})`;
+  ctx.strokeStyle = `rgba(76, 201, 192, ${0.2 * (1 - t)})`;
   ctx.lineWidth = 8;
   ctx.stroke();
 }
@@ -320,7 +310,7 @@ function drawRipples(
     const screen = worldToScreen(ripple.position, boat, cx, cy, pxPerUnit);
     ctx.beginPath();
     ctx.arc(screen.x, screen.y, 6 + t * 22, 0, TAU);
-    ctx.strokeStyle = `rgba(239, 68, 68, ${0.85 * (1 - t)})`;
+    ctx.strokeStyle = `rgba(232, 65, 47, ${0.85 * (1 - t)})`;
     ctx.lineWidth = 2;
     ctx.stroke();
   }

@@ -79,10 +79,13 @@ export const MOCK_GAME_STATE: GameState = {
   weather: {
     windDirection: Math.PI * 0.75,
     windStrength: 0.6,
-    current: { x: 0.012, y: -0.004 },
+    current: { x: 0.004, y: -0.002 },
+    // Gust pairs, like the engine sends: a gust, then back to the calm base 3 s later.
     forecast: [
-      { atMs: 40_000, current: { x: -0.018, y: 0.006 } },
-      { atMs: 55_000, current: { x: 0.0, y: 0.02 } },
+      { atMs: 34_000, current: { x: 0.022, y: -0.002 } },
+      { atMs: 37_000, current: { x: 0.004, y: -0.002 } },
+      { atMs: 43_000, current: { x: -0.006, y: 0.026 } },
+      { atMs: 46_000, current: { x: 0.004, y: -0.002 } },
     ],
     stormIntensity: 0.55,
     shieldActiveUntilMs: null,
