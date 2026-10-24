@@ -64,6 +64,7 @@ Gotchas:
 - A tab that's closed drops its WebSocket immediately and presence updates within ~1–2 s. A phone that's locked or backgrounded may keep the socket for up to ~30 s before the server times out its heartbeat.
 - Env vars are read at build/dev-server start. After editing `.env.local`, restart `npm run dev`.
 - Without the env vars everything falls back to mock mode, and `/debug` says so (only that tab is in the room).
+- Player ids are per tab (sessionStorage), with localStorage + a short lease so a closed-and-reopened tab gets its old id (and role) back. So several tabs in one browser join as different players. "Duplicate tab" copies sessionStorage and would clone the player; open a new tab instead.
 
 ## GitHub collaboration
 
