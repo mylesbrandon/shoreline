@@ -4,9 +4,9 @@
  * Pure functions: never mutate `state`, never read the clock, never touch the network.
  * Seq-based dedupe of envelopes happens BEFORE this, in the host session (src/lib/game-client).
  */
-import { WEATHER } from "../config";
+import { SONAR, WEATHER } from "../config";
 import { ACTION_PERMISSIONS } from "../types";
-import type { ActionRejectReason, GameEvent, GameState, PlayerAction, Role } from "../types";
+import type { ActionRejectReason, GameEvent, GameState, PlayerAction, Role, SonarContact, Vec2 } from "../types";
 import { isSectorId } from "../sectors";
 
 export type SenderRole = Role | "host";
@@ -19,6 +19,7 @@ export interface ActionResult {
 }
 
 const isFiniteNumber = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n);
+const distance = (a: Vec2, b: Vec2) => Math.hypot(a.x - b.x, a.y - b.y);
 const inUnitSquare = (p: { x: number; y: number }) =>
   isFiniteNumber(p.x) && isFiniteNumber(p.y) && p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1;
 
@@ -86,10 +87,36 @@ export function applyAction(state: GameState, action: PlayerAction, sender: Send
     case "SET_THROTTLE":
       return { state: { ...state, boat: { ...state.boat, throttle: action.throttle } }, events: [], rejected: null };
 
-    // TODO(dev1, later): cooldown check → reveal hazards within SONAR.pingRange, record contacts,
-    // emit SONAR_PINGED. Return rejected: "cooldown" if pinged too recently.
-    case "SONAR_PING":
-      return { state, events: [], rejected: null };
+    case "SONAR_PING": {
+      const { elapsedMs } = state.mission;
+      const { lastPingAtMs } = state.sonar;
+      // Same rule as SonarView.pingReadyAtMs, so the button and the engine agree.
+      if (lastPingAtMs !== null && elapsedMs < lastPingAtMs + SONAR.pingCooldownMs) {
+        return { state, events: [], rejected: "cooldown" };
+      }
+      const origin = { ...state.boat.position };
+      // Any part of the hazard inside the sweep counts, matching the captain's lookout rule.
+      const found = state.hazards.filter((h) => distance(h.position, origin) <= SONAR.pingRange + h.radius);
+      const foundIds = new Set(found.map((h) => h.id));
+      const detected = found.map(
+        (h): SonarContact => ({ hazardId: h.id, position: h.position, radius: h.radius, kind: h.kind, detectedAtMs: elapsedMs }),
+      );
+      return {
+        state: {
+          ...state,
+          hazards: state.hazards.map((h) => (foundIds.has(h.id) && !h.revealed ? { ...h, revealed: true } : h)),
+          sonar: {
+            lastPingAtMs: elapsedMs,
+            lastPingOrigin: origin,
+            // Re-detected hazards replace their old contact (no duplicates) so the scope's age fade restarts.
+            contacts: [...state.sonar.contacts.filter((c) => !foundIds.has(c.hazardId)), ...detected],
+            pingsUsed: state.sonar.pingsUsed + 1,
+          },
+        },
+        events: [{ type: "SONAR_PINGED", origin, contactsFound: found.length, atMs: elapsedMs }],
+        rejected: null,
+      };
+    }
 
     // TODO(dev1, later): append a shared Marker (cap the list, e.g. last 8), emit MARKER_PLACED.
     case "MARK_HAZARD":
