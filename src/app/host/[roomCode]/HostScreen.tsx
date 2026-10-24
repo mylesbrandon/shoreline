@@ -13,12 +13,14 @@ import { HostSession } from "@/lib/game-client/host-session";
 import { useStore } from "@/lib/game-client/hooks";
 import { createTransport } from "@/lib/realtime/create-transport";
 import { JoinQr } from "@/components/shared/JoinQr";
+import { ConnectionBanner } from "@/components/shared/ConnectionBanner";
 import { ModeBadge } from "@/components/shared/ModeBadge";
+import { isMissionOver, MissionResults } from "@/components/shared/MissionResults";
 import { ROLE_INFO } from "@/components/shared/roles";
 import { useAnimationTime } from "@/components/shared/use-animation-time";
 import { SpectatorDisplay } from "@/components/ocean/SpectatorDisplay";
 
-export function HostScreen({ roomCode }: { roomCode: string }) {
+export function HostScreen({ roomCode, lanOrigin = null }: { roomCode: string; lanOrigin?: string | null }) {
   // Constructing a session has no side effects; start()/stop() happen in the effect below.
   const [session] = useState(() => new HostSession({ roomCode, transport: createTransport(roomCode), engine }));
   const snap = useStore(session.store);
@@ -41,6 +43,7 @@ export function HostScreen({ roomCode }: { roomCode: string }) {
   return (
     <main className="mx-auto grid min-h-dvh max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[1fr_340px] lg:px-8">
       <section className="grid content-start gap-3">
+        {!isMock && <ConnectionBanner status={snap.status} error={snap.error} />}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Link href="/" className="text-2xl font-bold">
             Storm<span className="text-teal">line</span>
@@ -65,7 +68,7 @@ export function HostScreen({ roomCode }: { roomCode: string }) {
         <div className="instrument grid gap-3 rounded-2xl p-5 text-center">
           <p className="font-mono text-xs uppercase tracking-[0.3em] text-mist">Room code</p>
           <p className="font-mono text-5xl font-semibold tracking-[0.3em] text-teal">{roomCode}</p>
-          <JoinQr roomCode={roomCode} />
+          <JoinQr roomCode={roomCode} lanOrigin={lanOrigin} />
         </div>
 
         {isMock && (
@@ -74,7 +77,12 @@ export function HostScreen({ roomCode }: { roomCode: string }) {
             (docs/DEPLOY.md), or open a <Link className="underline" href="/room/DEMO?preview=captain">station preview</Link>.
           </p>
         )}
-        {snap.error && <p className="rounded-xl border border-hazard/50 bg-hazard/10 p-3 text-sm text-hazard">{snap.error}</p>}
+        {isMock && snap.error && (
+          <p className="rounded-xl border border-hazard/50 bg-hazard/10 p-3 text-sm text-hazard">{snap.error}</p>
+        )}
+        {!scripted && isMissionOver(snap.spectator.mission) && (
+          <MissionResults mission={snap.spectator.mission} footer={<p className="text-sm text-mist">Press Reset, then Start to play again.</p>} />
+        )}
 
         <div className="instrument grid gap-2 rounded-2xl p-5">
           <p className="font-mono text-xs uppercase tracking-[0.3em] text-mist">
