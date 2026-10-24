@@ -5,7 +5,8 @@
  * Pure: same input => same output. No Date.now(), no Math.random().
  */
 import { BOAT, MAP, WEATHER } from "../config";
-import type { BoatState, GameEvent, GameState, Vec2, WeatherState } from "../types";
+import type { BoatState, FailureReason, GameEvent, GameState, MissionState, Vec2, WeatherState } from "../types";
+import { scoreMission } from "./score";
 
 const TWO_PI = Math.PI * 2;
 
@@ -83,16 +84,27 @@ export function step(state: GameState, dtMs: number): StepResult {
   // forecast shifts reached during the step take effect from the next one.
   const boat = stepBoat(state.boat, dtMs / 1000, effectiveCurrent(state.weather, state.mission.elapsedMs));
 
-  // TODO(dev1, later): hazard collisions, rescue check, score.
+  // TODO(dev1, later): hazard collisions (hull 0 => failure "hull_destroyed").
 
-  let mission = { ...state.mission, elapsedMs };
-  if (elapsedMs >= state.mission.durationMs) {
-    mission = { ...mission, elapsedMs: state.mission.durationMs, phase: "failure", failureReason: "timeout" };
-  }
+  const mission = { ...state.mission, elapsedMs: Math.min(elapsedMs, state.mission.durationMs) };
   const weather = applyForecast(state.weather, mission.elapsedMs, events);
-  if (mission.phase === "failure") {
-    events.push({ type: "MISSION_ENDED", phase: "failure", reason: "timeout", atMs: mission.elapsedMs });
-  }
+  const next: GameState = { ...state, tick: state.tick + 1, boat, weather, mission };
 
-  return { state: { ...state, tick: state.tick + 1, boat, weather, mission }, events };
+  // Reaching the Gull on the final step still counts: rescue wins over timeout.
+  const rescued = distance(boat.position, state.target.position) <= state.target.rescueRadius;
+  if (rescued) return { state: endMission(next, "victory", null), events: [...events, ended(mission, "victory", null)] };
+  if (elapsedMs >= state.mission.durationMs) {
+    return { state: endMission(next, "failure", "timeout"), events: [...events, ended(mission, "failure", "timeout")] };
+  }
+  return { state: next, events };
+}
+
+const distance = (a: Vec2, b: Vec2) => Math.hypot(a.x - b.x, a.y - b.y);
+
+function endMission(state: GameState, phase: "victory" | "failure", failureReason: FailureReason | null): GameState {
+  return { ...state, mission: { ...state.mission, phase, failureReason, score: scoreMission(state, phase) } };
+}
+
+function ended(mission: MissionState, phase: "victory" | "failure", reason: FailureReason | null): GameEvent {
+  return { type: "MISSION_ENDED", phase, reason, atMs: mission.elapsedMs };
 }
