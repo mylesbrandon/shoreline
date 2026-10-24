@@ -3,6 +3,7 @@
  * Player phone screen: name entry → lobby → role station → results. OWNER: Developer 2.
  */
 import Link from "next/link";
+import { Wordmark } from "@/components/shared/Wordmark";
 import { useEffect, useRef, useState } from "react";
 import { PlayerSession } from "@/lib/game-client/player-session";
 import { useStore } from "@/lib/game-client/hooks";
@@ -55,7 +56,7 @@ export function PlayerScreen({ roomCode, initialName }: { roomCode: string; init
     <main className="mx-auto grid min-h-dvh max-w-xl content-start gap-4 px-4 py-4">
       <header className="flex items-center justify-between">
         <Link href="/" className="text-xl font-bold">
-          Storm<span className="text-teal">line</span>
+          <Wordmark />
         </Link>
         <span className="font-mono text-sm tracking-[0.3em] text-mist">{roomCode}</span>
       </header>
@@ -135,7 +136,7 @@ function JoinedView({ session }: { session: PlayerSession }) {
           <ModeBadge mode="live" />
           <p className="text-lg">
             {snap.room && snap.me
-              ? "All four stations are crewed — you're watching."
+              ? "All four lifeguard spots are taken — you're watching from the beach."
               : `Contacting host… (${snap.status})`}
           </p>
         </div>
@@ -155,7 +156,7 @@ function JoinedView({ session }: { session: PlayerSession }) {
           <p className="font-mono text-xs uppercase tracking-[0.3em] text-mist">Your station</p>
           <h1 className={`text-4xl font-bold ${info.accent}`}>{info.label}</h1>
           <p className="text-mist">{info.brief}</p>
-          <p className="font-mono text-xs text-hull">Waiting for the host to start…</p>
+          <p className="font-mono text-xs text-hull">Waiting for the whistle…</p>
         </div>
       </div>
     );

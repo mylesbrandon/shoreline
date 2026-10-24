@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { MISSION } from "@/game/config";
+import { Wordmark } from "@/components/shared/Wordmark";
 import { ROLES } from "@/game/types";
 import { ROLE_INFO } from "@/components/shared/roles";
 import { HostButton, JoinForm } from "./LandingActions";
@@ -15,11 +17,12 @@ export default function Home() {
       </header>
 
       <section className="grid gap-6">
-        <h1 className="text-6xl font-bold tracking-tight sm:text-8xl">
-          Storm<span className="text-teal">line</span>
+        <h1 className="text-5xl font-bold tracking-tight sm:text-8xl">
+          <Wordmark />
         </h1>
         <p className="max-w-xl text-xl text-mist sm:text-2xl">
-          Four players. Four perspectives. <span className="text-foam">One rescue mission.</span>
+          A tourist on a giant inflatable seagull just drifted past the buoys.{" "}
+          <span className="text-foam">Four lifeguards, four phones, {MISSION.durationMs / 1000} seconds.</span>
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="instrument grid gap-3 rounded-2xl p-5">
@@ -34,7 +37,7 @@ export default function Home() {
       </section>
 
       <section className="grid gap-4">
-        <h2 className="font-mono text-xs uppercase tracking-[0.25em] text-mist">The crew · preview each station with mock data</h2>
+        <h2 className="font-mono text-xs uppercase tracking-[0.25em] text-mist">Tower 4&apos;s crew · preview each station with mock data</h2>
         <div className="grid gap-3 sm:grid-cols-4">
           {ROLES.map((role) => {
             const info = ROLE_INFO[role];

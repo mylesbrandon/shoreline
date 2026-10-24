@@ -27,16 +27,16 @@ export function SonarStation({ view, onAction }: SonarStationProps) {
 
   return (
     <div className="grid gap-3">
-      <StationPanel title="Sonar scope · tap to mark" tone="cyan">
+      <StationPanel title="Drone camera · tap to mark" tone="cyan">
         <SonarScope view={view} onMark={mark} disabled={!active} />
         <ReadoutRow>
-          <Readout label="Contacts" value={view.contacts.length} tone="amber" />
-          <Readout label="Hull" value={hull} unit="%" tone={hull <= 25 ? "hazard" : "teal"} />
-          <Readout label="Ping" value={pingReady ? "Ready" : "Wait"} tone={pingReady ? "cyan" : "mist"} />
+          <Readout label="Spotted" value={view.contacts.length} tone="amber" />
+          <Readout label="Ski" value={hull} unit="%" tone={hull <= 25 ? "hazard" : "teal"} />
+          <Readout label="Sweep" value={pingReady ? "Ready" : "Wait"} tone={pingReady ? "cyan" : "mist"} />
         </ReadoutRow>
       </StationPanel>
       <CooldownButton
-        label="Ping"
+        label="Sweep"
         nowMs={now}
         readyAtMs={view.pingReadyAtMs}
         cooldownMs={SONAR.pingCooldownMs}

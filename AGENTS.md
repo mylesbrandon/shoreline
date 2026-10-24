@@ -26,7 +26,7 @@ Stormline is a four-player cooperative ocean-rescue browser game built in ~24 ho
 - **Engine is pure TypeScript.** `src/game/**` must not import React, Next, Supabase, the DOM, `src/lib/**` or `src/components/**`, and must not call `Date.now()`, `Math.random()`, or `performance.now()`. Use `createRng(seed)` for randomness and the `dtMs` argument for time. Never mutate input state.
 - **Components are props-in, actions-out.** Stations take `{ view, onAction }`. Components never import `src/lib/realtime`, `src/lib/game-client`, or `src/game/engine`.
 - **Only `src/lib/realtime/supabase-*.ts` imports `@supabase/supabase-js`.**
-- **Hidden information** is filtered only in `src/game/engine/views.ts`. Never add the rescue target to any role view.
+- **Hidden information** is filtered only in `src/game/engine/views.ts`. Never add the rescue target to any role view, with one approved exception: a Sonar ping within `SONAR.pingRange` adds a `"gull"` contact (a position snapshot) to the **Sonar** view only. The Captain, Weather and Radio views never get it.
 - **Units:** normalized map `[0,1]²` (+y is south), radians with 0 = north clockwise, mission-time milliseconds. See `docs/CONTRACTS.md`.
 - **Mock mode must stay honest.** Anything rendering mock data shows `<ModeBadge mode="mock" | "preview" />`. Never fake multi-device sync.
 - No new dependencies without Dev 2's approval. Never add: Redux/Zustand/XState, a separate server, Python, auth, database tables, AI APIs.

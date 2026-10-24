@@ -1,32 +1,32 @@
 /**
- * Display metadata for roles (labels, icons, one-line briefs). OWNER: Developer 2.
+ * Display metadata for roles (labels, icons, one-line briefs). Red Flag Day names; code ids stay captain/sonar/weather/radio.
  */
-import { Anchor, CloudLightning, Radar, RadioTower, type LucideIcon } from "lucide-react";
+import { Binoculars, RadioTower, Sailboat, Waves, type LucideIcon } from "lucide-react";
 import type { Role } from "@/game/types";
 
 export const ROLE_INFO: Record<Role, { label: string; icon: LucideIcon; brief: string; accent: string }> = {
   captain: {
-    label: "Captain",
-    icon: Anchor,
-    brief: "Steer the boat. You see the water, not what's under it.",
+    label: "Driver",
+    icon: Sailboat,
+    brief: "You drive the ski. The glare's bad. Trust your crew.",
     accent: "text-teal",
   },
   sonar: {
-    label: "Sonar",
-    icon: Radar,
-    brief: "Ping for hidden reefs and mark them for the Captain.",
+    label: "Drone",
+    icon: Binoculars,
+    brief: "Sweep the water. Call out sandbars, rocks and jellies before the Driver hits them.",
     accent: "text-cyan",
   },
   weather: {
-    label: "Weather",
-    icon: CloudLightning,
-    brief: "Read the currents ahead. Raise the shield when the storm hits.",
+    label: "Surf Watch",
+    icon: Waves,
+    brief: "Sets are rolling in. Brace the ski or warn the Driver.",
     accent: "text-brass",
   },
   radio: {
-    label: "Radio",
+    label: "Tower Radio",
     icon: RadioTower,
-    brief: "Triangulate the distress signal and guide the crew to it.",
+    brief: "The beach is calling in sightings. Find the seagull. Move the pin.",
     accent: "text-amber",
   },
 };

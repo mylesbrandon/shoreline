@@ -133,11 +133,21 @@ export interface Marker {
   placedAtMs: number;
 }
 
+/**
+ * What a sonar ping found. Usually a hazard; "gull" means the ping also caught the Gull itself
+ * (within SONAR.pingRange). Gull contacts exist ONLY in the Sonar view, never the Captain's.
+ */
+export type SonarContactKind = HazardKind | "gull";
+
+/** hazardId used by the Gull's sonar contact. */
+export const GULL_CONTACT_ID = "gull";
+
 export interface SonarContact {
+  /** The hazard's id, or GULL_CONTACT_ID for the Gull. */
   hazardId: string;
   position: Vec2;
   radius: number;
-  kind: HazardKind;
+  kind: SonarContactKind;
   detectedAtMs: number;
 }
 

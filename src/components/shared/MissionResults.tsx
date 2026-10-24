@@ -6,8 +6,8 @@ import type { MissionState } from "@/game/types";
 import { formatClock } from "./MissionClock";
 
 const FAILURE_COPY: Record<NonNullable<MissionState["failureReason"]>, string> = {
-  timeout: "Time ran out before the rescue.",
-  hull_destroyed: "The hull couldn't take any more.",
+  timeout: "Run it back.",
+  hull_destroyed: "Ski beached on a sandbar.",
 };
 
 export function isMissionOver(mission: MissionState): boolean {
@@ -20,15 +20,16 @@ export function MissionResults({ mission, footer }: { mission: MissionState; foo
   const rows: [string, string][] = score
     ? [
         ["Time left", formatClock(score.timeRemainingMs)],
-        ["Hull", `${Math.round(score.hullRemaining)}%`],
+        ["Ski health", `${Math.round(score.hullRemaining)}%`],
         ["Hazards hit", String(score.hazardsHit)],
-        ["Pings · scans · shields", `${score.pingsUsed} · ${score.scansUsed} · ${score.shieldsUsed}`],
+        ["Sweeps · calls · braces", `${score.pingsUsed} · ${score.scansUsed} · ${score.shieldsUsed}`],
       ]
     : [];
   return (
     <section className="instrument grid justify-items-center gap-3 rounded-2xl p-6 text-center">
-      <p className="font-mono text-xs uppercase tracking-[0.3em] text-mist">Mission {won ? "complete" : "failed"}</p>
-      <h2 className={`text-4xl font-bold ${won ? "text-teal" : "text-hazard"}`}>{won ? "Rescued!" : "Lost at sea"}</h2>
+      <p className="font-mono text-xs uppercase tracking-[0.3em] text-mist">{won ? "Rescue complete" : "Rescue failed"}</p>
+      <h2 className={`text-4xl font-bold ${won ? "text-teal" : "text-hazard"}`}>{won ? "Seagull secured!" : "The rip took them"}</h2>
+      {won && <p className="text-mist">The tourist owes you a smoothie.</p>}
       {!won && mission.failureReason && <p className="text-mist">{FAILURE_COPY[mission.failureReason]}</p>}
       {score && (
         <>

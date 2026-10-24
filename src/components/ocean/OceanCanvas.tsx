@@ -55,7 +55,7 @@ export function OceanCanvas({ className = "", onTapMap, gameId, ...scene }: Ocea
     return () => { cancelAnimationFrame(raf); observer.disconnect(); };
   }, []);
 
-  return <canvas ref={canvasRef} role="img" aria-label="Ocean chart showing rescue boat, visible hazards, shared markers and current"
+  return <canvas ref={canvasRef} role="img" aria-label="Beach water showing the rescue jet ski, visible hazards and shared markers"
     className={`block aspect-square w-full touch-none rounded-2xl ${className}`}
     onPointerDown={onTapMap ? (e) => {
       const rect = e.currentTarget.getBoundingClientRect();

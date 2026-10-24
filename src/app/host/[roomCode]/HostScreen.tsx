@@ -4,6 +4,7 @@
  * Runs the authoritative HostSession (engine + transport) and shows lobby, QR, and the ocean.
  */
 import Link from "next/link";
+import { Wordmark } from "@/components/shared/Wordmark";
 import { useEffect, useState } from "react";
 import { Play, RotateCcw } from "lucide-react";
 import { engine } from "@/game/engine";
@@ -46,7 +47,7 @@ export function HostScreen({ roomCode, lanOrigin = null }: { roomCode: string; l
         {!isMock && <ConnectionBanner status={snap.status} error={snap.error} />}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Link href="/" className="text-2xl font-bold">
-            Storm<span className="text-teal">line</span>
+            <Wordmark />
           </Link>
           <div className="flex items-center gap-2">
             {scripted && <ModeBadge mode="preview" />}
@@ -86,7 +87,7 @@ export function HostScreen({ roomCode, lanOrigin = null }: { roomCode: string; l
 
         <div className="instrument grid gap-2 rounded-2xl p-5">
           <p className="font-mono text-xs uppercase tracking-[0.3em] text-mist">
-            Crew · {snap.room.players.filter((p) => p.connected).length}/4 · {snap.status}
+            Tower 4 crew · {snap.room.players.filter((p) => p.connected).length}/4 · {snap.status}
           </p>
           {ROLES.map((role) => {
             const player = snap.room.players.find((p) => p.role === role);
@@ -95,7 +96,7 @@ export function HostScreen({ roomCode, lanOrigin = null }: { roomCode: string; l
             return (
               <div key={role} className="flex items-center gap-3 rounded-lg bg-navy px-3 py-2">
                 <Icon className={`size-5 ${info.accent}`} />
-                <span className="w-20 text-sm text-mist">{info.label}</span>
+                <span className="w-24 text-sm text-mist">{info.label}</span>
                 <span className={`flex-1 truncate ${player?.connected ? "text-foam" : "text-hull"}`}>
                   {player ? player.name : "waiting…"}
                   {player && !player.connected && " (offline)"}

@@ -5,6 +5,7 @@
  * Nothing here touches the network or the engine. OWNER: Developer 2 (route); used by Devs 3 & 4.
  */
 import Link from "next/link";
+import { Wordmark } from "@/components/shared/Wordmark";
 import { useState } from "react";
 import { ROLES, type PlayerAction, type Role } from "@/game/types";
 import { mockRoleViewsAt, mockSpectatorViewAt } from "@/game/mock-state";
@@ -27,7 +28,7 @@ export function StationPreview({ target }: { target: Role | "spectator" }) {
     <main className="mx-auto grid min-h-dvh max-w-xl content-start gap-3 px-4 py-4">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <Link href="/" className="text-xl font-bold">
-          Storm<span className="text-teal">line</span>
+          <Wordmark />
         </Link>
         <ModeBadge mode="preview" />
       </header>

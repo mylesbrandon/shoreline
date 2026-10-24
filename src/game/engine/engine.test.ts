@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import { applyAction, createInitialState, getRoleViews, getSpectatorView, step, type SenderRole } from "./index";
 import { BOAT, HAZARDS, MAP, MISSION, NETWORK, RADIO, SONAR, TARGET, WEATHER } from "../config";
 import type { CurrentForecastEntry, GameState, Hazard, PlayerAction, SectorId, Vec2 } from "../types";
+import { GULL_CONTACT_ID } from "../types";
 import { ALL_SECTORS, sectorCenter, sectorOf } from "../sectors";
 import { MARKERS, signalStrength } from "./actions";
 import { generateLayout, LAYOUT } from "./layout";
@@ -617,6 +618,57 @@ describe("sonar", () => {
   });
 });
 
+describe("sonar sees the Gull (fix 12)", () => {
+  const ping = (state: GameState) => applyAction(state, { type: "SONAR_PING" }, "sonar");
+  /** No hazards, calm water, the Gull `d` east of the boat. */
+  function gullAt(d: number, elapsedMs = 1_000): GameState {
+    const s = withCurrent(at(started(), elapsedMs), { x: 0, y: 0 });
+    const { x, y } = s.boat.position;
+    return { ...s, hazards: [], target: { ...s.target, position: { x: x + d, y } } };
+  }
+
+  test("a ping within range adds a gull contact to the Sonar view only", () => {
+    const s = gullAt(SONAR.pingRange - 0.01);
+    const r = ping(s);
+    const gull = r.state.sonar.contacts.find((c) => c.kind === "gull");
+    assert.ok(gull, "gull contact recorded");
+    assert.equal(gull.hazardId, GULL_CONTACT_ID);
+    assert.deepEqual(gull.position, s.target.position);
+    assert.equal(gull.radius, TARGET.rescueRadius);
+    assert.deepEqual(r.events, [{ type: "SONAR_PINGED", origin: s.boat.position, contactsFound: 1, atMs: 1_000 }]);
+
+    const views = getRoleViews(r.state);
+    assert.ok(views.sonar.contacts.some((c) => c.kind === "gull"));
+    // Nobody else learns where the Gull is: not in any other role view, not the spectator.
+    for (const role of ["captain", "weather", "radio"] as const) {
+      assert.ok(!JSON.stringify(views[role]).includes('"gull"'), `${role} view leaks the gull contact`);
+    }
+    assert.equal(views.captain.visibleHazards.length, 0);
+    assert.equal(getSpectatorView(r.state).target, null);
+    assert.ok(!JSON.stringify(getSpectatorView(r.state)).includes('"gull"'));
+  });
+
+  test("a ping out of range doesn't find the Gull", () => {
+    const r = ping(gullAt(SONAR.pingRange + 0.01));
+    assert.ok(!r.state.sonar.contacts.some((c) => c.kind === "gull"));
+    assert.equal(r.events[0]?.type === "SONAR_PINGED" && r.events[0].contactsFound, 0);
+  });
+
+  test("the gull contact is a snapshot: it stays put as the Gull drifts, and a re-ping replaces it", () => {
+    let s = ping(gullAt(0.1)).state;
+    const first = s.sonar.contacts.find((c) => c.kind === "gull")?.position;
+    s = withCurrent(s, { x: 0, y: -WEATHER.maxCurrent });
+    for (let i = 0; i < 4; i++) s = step(s, 1_000).state;
+    assert.deepEqual(s.sonar.contacts.find((c) => c.kind === "gull")?.position, first, "old fix doesn't follow the drift");
+    assert.notDeepEqual(s.target.position, first, "the Gull did drift");
+
+    s = ping(at(s, s.mission.elapsedMs + SONAR.pingCooldownMs)).state;
+    const gulls = s.sonar.contacts.filter((c) => c.kind === "gull");
+    assert.equal(gulls.length, 1, "re-ping replaces the gull contact");
+    assert.deepEqual(gulls[0]?.position, s.target.position);
+  });
+});
+
 describe("radio", () => {
   const scan = (state: GameState, sector: SectorId, sender: SenderRole = "radio") =>
     applyAction(state, { type: "RADIO_SCAN", sector }, sender);
@@ -975,7 +1027,7 @@ describe("rescue and score", () => {
 });
 
 describe("hidden information", () => {
-  test("no player view contains the rescue target", () => {
+  test("no player view contains the rescue target (only Sonar, via an in-range ping; see fix 12 tests)", () => {
     const views = getRoleViews(started());
     for (const view of Object.values(views)) {
       assert.ok(!("target" in view), `${view.role} view leaks target`);

@@ -6,15 +6,15 @@ const chakra = Chakra_Petch({ subsets: ["latin"], weight: ["400", "500", "600", 
 const plexMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "600"], variable: "--font-plex-mono" });
 
 export const metadata: Metadata = {
-  title: "Stormline",
-  description: "Four players. Four perspectives. One rescue mission.",
+  title: "Red Flag Day",
+  description: "A tourist on a giant inflatable seagull just drifted past the buoys. Four lifeguards, four phones, 90 seconds.",
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#040a16",
+  themeColor: "#08304a",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
