@@ -840,7 +840,7 @@ describe("playtest rules", () => {
     assert.ok(getSpectatorView(later).hazards.some((h) => h.id === "far"));
   });
 
-  test("the Gull drifts at currentFactor × the raw current, ignoring the boat's shield", () => {
+  test("the Gull drifts at currentFactor × the raw current plus the rip, ignoring the boat's shield", () => {
     const current = { x: 0.02, y: -0.01 };
     let s: GameState = { ...withCurrent(started(), current), hazards: [] };
     s = { ...s, target: { ...s.target, position: { x: 0.5, y: 0.5 } } }; // mid-map, clear of the margin clamp
@@ -848,8 +848,35 @@ describe("playtest rules", () => {
     const before = s.target.position;
     const after = step(s, 1_000).state.target.position;
     approx(after.x - before.x, current.x * GULL_DRIFT.currentFactor, "gull dx");
-    approx(after.y - before.y, current.y * GULL_DRIFT.currentFactor, "gull dy");
+    approx(after.y - before.y, current.y * GULL_DRIFT.currentFactor - GULL_DRIFT.seawardSpeed, "gull dy");
     assert.equal(getSpectatorView(step(s, 1_000).state).target, null, "drift must not reveal the Gull");
+  });
+
+  test("in calm water the rip still pulls the Gull out to sea (north)", () => {
+    let s: GameState = { ...withCurrent(started(), { x: 0, y: 0 }), hazards: [] };
+    s = { ...s, target: { ...s.target, position: { x: 0.5, y: 0.5 } } };
+    const after = step(s, 1_000).state.target.position;
+    approx(after.x, 0.5, "no sideways drift");
+    approx(after.y, 0.5 - GULL_DRIFT.seawardSpeed, "seaward drift");
+  });
+
+  test("Tower Radio lines report the drift direction and urgency, never where the Gull is", () => {
+    const radioAt = (current: Vec2, elapsedMs: number) =>
+      getRoleViews(at(withCurrent(started(), current), elapsedMs)).radio.distressLog;
+
+    const calm = radioAt({ x: 0, y: 0 }, 0);
+    assert.ok(calm.some((l) => l.includes("drifting north.")), `rip alone drifts north: ${calm.join(" | ")}`);
+    assert.ok(radioAt({ x: WEATHER.maxCurrent, y: 0 }, 0).some((l) => l.includes("drifting east.")));
+    assert.ok(radioAt({ x: -WEATHER.maxCurrent, y: WEATHER.maxCurrent }, 0).some((l) => l.includes("drifting south-west.")));
+
+    assert.equal(radioAt({ x: 0, y: 0 }, 29_999).length, 2);
+    assert.equal(radioAt({ x: 0, y: 0 }, 30_000).length, 3);
+    assert.equal(radioAt({ x: 0, y: 0 }, 60_000).length, 4);
+
+    for (const line of radioAt({ x: 0.01, y: 0.02 }, 70_000)) {
+      assert.ok(!/\d*\.\d/.test(line), `no coordinates: ${line}`); // "Tower 4" is a name, not a position
+      assert.ok(!/\b[A-D][1-4]\b/.test(line), `no sector ids: ${line}`);
+    }
   });
 
   test("the Gull stays inside the drift margin", () => {
@@ -912,7 +939,7 @@ describe("rescue and score", () => {
       total: 1_975,
     });
     assert.equal(step(r.state, DT).state, r.state, "a finished mission doesn't keep simulating");
-    assert.deepEqual(getSpectatorView(r.state).target, s.target);
+    assert.deepEqual(getSpectatorView(r.state).target, r.state.target, "spectator sees where the Gull ended up");
   });
 
   test("a boat just outside the rescue radius keeps searching", () => {
