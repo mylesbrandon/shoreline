@@ -49,6 +49,27 @@ function drift(state: GameState): { next: GameState; dx: number; dy: number } {
 const approx = (actual: number, expected: number, label: string) =>
   assert.ok(Math.abs(actual - expected) < 1e-12, `${label}: expected ${expected}, got ${actual}`);
 
+/**
+ * Replace the hazards with test ones placed `d` east of the boat. Each spreads a real starter
+ * hazard, so these stay valid if the Hazard contract gains fields.
+ */
+function hazardsEastOfBoat(state: GameState, hazards: { id: string; d: number; radius: number }[]): GameState {
+  const template = state.hazards[0];
+  assert.ok(template, "starter layout has hazards");
+  const { x, y } = state.boat.position;
+  return {
+    ...state,
+    hazards: hazards.map(({ id, d, radius }) => ({
+      ...template,
+      id,
+      radius,
+      revealed: false,
+      lastHitAtMs: null,
+      position: { x: x + d, y },
+    })),
+  };
+}
+
 /** Signed shortest difference b - a in (-π, π]. */
 function angleDelta(a: number, b: number): number {
   const d = (((b - a) % (2 * Math.PI)) + 3 * Math.PI) % (2 * Math.PI);
@@ -372,20 +393,6 @@ describe("weather", () => {
 describe("sonar", () => {
   const ping = (state: GameState, sender: SenderRole = "sonar") => applyAction(state, { type: "SONAR_PING" }, sender);
 
-  /**
-   * Replace the hazards with test ones placed `d` east of the boat. Each spreads a real starter
-   * hazard, so these stay valid if the Hazard contract gains fields.
-   */
-  function hazardsEastOfBoat(state: GameState, hazards: { id: string; d: number; radius: number }[]): GameState {
-    const template = state.hazards[0];
-    assert.ok(template, "starter layout has hazards");
-    const { x, y } = state.boat.position;
-    return {
-      ...state,
-      hazards: hazards.map(({ id, d, radius }) => ({ ...template, id, radius, revealed: false, position: { x: x + d, y } })),
-    };
-  }
-
   test("a ping reveals hazards within range, records contacts and emits SONAR_PINGED", () => {
     const r0 = 0.03;
     const s = hazardsEastOfBoat(at(started(), 2_000), [
@@ -571,6 +578,95 @@ describe("markers", () => {
     const ids = s.markers.map((m) => Number(m.id.slice(1)));
     assert.equal(new Set(ids).size, ids.length, "marker ids are unique");
     assert.equal(s.markers.at(-1)?.id, `m${2 + MARKERS.maxHazardMarks + 3}`);
+  });
+});
+
+describe("hazard collisions", () => {
+  /** Calm water, boat stopped, clock at `elapsedMs`, with the given hazards east of the boat. */
+  function onReef(elapsedMs: number, hazards: { id: string; d: number; radius: number }[], hull: number = BOAT.startHull): GameState {
+    const s = hazardsEastOfBoat(withCurrent(at(started(), elapsedMs), { x: 0, y: 0 }), hazards);
+    return { ...s, boat: { ...s.boat, hull } };
+  }
+
+  test("driving into a hazard damages the hull, reveals it and emits HAZARD_HIT", () => {
+    const s = onReef(1_000, [{ id: "reef", d: 0.01, radius: 0.03 }]);
+    const snapshot = structuredClone(s);
+    const r = step(s, 100);
+    assert.deepEqual(s, snapshot, "step mutated its input");
+    assert.equal(r.state.boat.hull, BOAT.startHull - BOAT.collisionDamage);
+    assert.equal(r.state.stats.hazardsHit, 1);
+    assert.deepEqual(r.events, [{ type: "HAZARD_HIT", hazardId: "reef", damage: BOAT.collisionDamage, atMs: 1_100 }]);
+    assert.deepEqual(
+      r.state.hazards.map((h) => [h.id, h.revealed, h.lastHitAtMs]),
+      [["reef", true, 1_100]],
+    );
+    assert.ok(getRoleViews(r.state).captain.visibleHazards.some((h) => h.id === "reef"));
+  });
+
+  test("a hazard just outside the boat does nothing", () => {
+    const r = step(onReef(1_000, [{ id: "reef", d: 0.03 + 0.001, radius: 0.03 }]), DT);
+    assert.equal(r.state.boat.hull, BOAT.startHull);
+    assert.deepEqual(r.events, []);
+    assert.equal(r.state.hazards[0]?.lastHitAtMs, null);
+  });
+
+  test("the same hazard can't hit again until collisionCooldownMs has passed", () => {
+    let r = step(onReef(1_000, [{ id: "reef", d: 0, radius: 0.03 }]), 100); // hit at 1100
+    assert.equal(r.state.boat.hull, 75);
+
+    r = step(r.state, BOAT.collisionCooldownMs - 1); // 1 ms short of the cooldown, still on the reef
+    assert.equal(r.state.boat.hull, 75);
+    assert.deepEqual(r.events, []);
+
+    r = step(r.state, 1); // exactly collisionCooldownMs after the first hit
+    assert.equal(r.state.boat.hull, 50);
+    assert.deepEqual(r.events, [
+      { type: "HAZARD_HIT", hazardId: "reef", damage: BOAT.collisionDamage, atMs: 1_100 + BOAT.collisionCooldownMs },
+    ]);
+    assert.equal(r.state.stats.hazardsHit, 2);
+  });
+
+  test("overlapping hazards each hit once in the same step", () => {
+    const r = step(
+      onReef(0, [
+        { id: "a", d: 0.01, radius: 0.03 },
+        { id: "b", d: -0.01, radius: 0.03 },
+      ]),
+      DT,
+    );
+    assert.equal(r.state.boat.hull, BOAT.startHull - 2 * BOAT.collisionDamage);
+    assert.deepEqual(r.events.map((e) => e.type === "HAZARD_HIT" && e.hazardId), ["a", "b"]);
+    assert.equal(r.state.stats.hazardsHit, 2);
+  });
+
+  test("losing the last hull point fails the mission with hull_destroyed, even at the Gull", () => {
+    let s = onReef(20_000, [{ id: "reef", d: 0, radius: 0.03 }], 10);
+    s = { ...s, target: { ...s.target, position: s.boat.position } }; // also inside the rescue radius
+    const r = step(s, 100);
+    assert.equal(r.state.boat.hull, 0, "hull never goes negative");
+    assert.equal(r.state.mission.phase, "failure");
+    assert.equal(r.state.mission.failureReason, "hull_destroyed");
+    assert.deepEqual(r.events, [
+      { type: "HAZARD_HIT", hazardId: "reef", damage: 10, atMs: 20_100 },
+      { type: "MISSION_ENDED", phase: "failure", reason: "hull_destroyed", atMs: 20_100 },
+    ]);
+    assert.equal(r.state.mission.score?.total, 0);
+    assert.equal(r.state.mission.score?.hullRemaining, 0);
+    assert.equal(r.state.mission.score?.hazardsHit, 1);
+    assert.equal(step(r.state, DT).state, r.state, "a sunk boat doesn't keep simulating");
+  });
+
+  test("hits stop once the hull is gone", () => {
+    const r = step(
+      onReef(0, [
+        { id: "a", d: 0, radius: 0.03 },
+        { id: "b", d: 0.005, radius: 0.03 },
+      ], 20),
+      DT,
+    );
+    assert.deepEqual(r.events.map((e) => e.type), ["HAZARD_HIT", "MISSION_ENDED"]);
+    assert.equal(r.state.stats.hazardsHit, 1);
+    assert.equal(r.state.hazards.find((h) => h.id === "b")?.lastHitAtMs, null);
   });
 });
 

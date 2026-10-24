@@ -5,7 +5,7 @@
  * Pure: same input => same output. No Date.now(), no Math.random().
  */
 import { BOAT, MAP, WEATHER } from "../config";
-import type { BoatState, FailureReason, GameEvent, GameState, MissionState, Vec2, WeatherState } from "../types";
+import type { BoatState, FailureReason, GameEvent, GameState, Hazard, MissionState, Vec2, WeatherState } from "../types";
 import { scoreMission } from "./score";
 
 const TWO_PI = Math.PI * 2;
@@ -84,13 +84,27 @@ export function step(state: GameState, dtMs: number): StepResult {
   // forecast shifts reached during the step take effect from the next one.
   const boat = stepBoat(state.boat, dtMs / 1000, effectiveCurrent(state.weather, state.mission.elapsedMs));
 
-  // TODO(dev1, later): hazard collisions (hull 0 => failure "hull_destroyed").
-
   const mission = { ...state.mission, elapsedMs: Math.min(elapsedMs, state.mission.durationMs) };
+  const hit = applyCollisions(state.hazards, boat, mission.elapsedMs, events);
   const weather = applyForecast(state.weather, mission.elapsedMs, events);
-  const next: GameState = { ...state, tick: state.tick + 1, boat, weather, mission };
+  const next: GameState = {
+    ...state,
+    tick: state.tick + 1,
+    boat: hit.boat,
+    hazards: hit.hazards,
+    weather,
+    mission,
+    stats: hit.count > 0 ? { ...state.stats, hazardsHit: state.stats.hazardsHit + hit.count } : state.stats,
+  };
 
-  // Reaching the Gull on the final step still counts: rescue wins over timeout.
+  // Several endings in one step: a sunk boat can't rescue anyone, and reaching the Gull on the
+  // final step still counts. So hull_destroyed > victory > timeout.
+  if (hit.boat.hull <= 0) {
+    return {
+      state: endMission(next, "failure", "hull_destroyed"),
+      events: [...events, ended(mission, "failure", "hull_destroyed")],
+    };
+  }
   const rescued = distance(boat.position, state.target.position) <= state.target.rescueRadius;
   if (rescued) return { state: endMission(next, "victory", null), events: [...events, ended(mission, "victory", null)] };
   if (elapsedMs >= state.mission.durationMs) {
@@ -100,6 +114,31 @@ export function step(state: GameState, dtMs: number): StepResult {
 }
 
 const distance = (a: Vec2, b: Vec2) => Math.hypot(a.x - b.x, a.y - b.y);
+
+/**
+ * Damage the hull once for every hazard the boat is inside, then ignore that hazard for
+ * BOAT.collisionCooldownMs (via Hazard.lastHitAtMs) so sitting on a reef isn't 25 damage a frame.
+ * A hit also reveals the hazard: the crew has seen it up close.
+ */
+function applyCollisions(
+  hazards: Hazard[],
+  boat: BoatState,
+  atMs: number,
+  events: GameEvent[],
+): { boat: BoatState; hazards: Hazard[]; count: number } {
+  let hull = boat.hull;
+  let count = 0;
+  const next = hazards.map((h) => {
+    const coolingDown = h.lastHitAtMs !== null && atMs - h.lastHitAtMs < BOAT.collisionCooldownMs;
+    if (hull <= 0 || coolingDown || distance(boat.position, h.position) >= h.radius) return h;
+    const damage = Math.min(BOAT.collisionDamage, hull);
+    hull -= damage;
+    count++;
+    events.push({ type: "HAZARD_HIT", hazardId: h.id, damage, atMs });
+    return { ...h, revealed: true, lastHitAtMs: atMs };
+  });
+  return count === 0 ? { boat, hazards, count } : { boat: { ...boat, hull }, hazards: next, count };
+}
 
 function endMission(state: GameState, phase: "victory" | "failure", failureReason: FailureReason | null): GameState {
   return { ...state, mission: { ...state.mission, phase, failureReason, score: scoreMission(state, phase) } };
