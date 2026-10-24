@@ -20,7 +20,7 @@ import { ROLE_INFO } from "@/components/shared/roles";
 import { useAnimationTime } from "@/components/shared/use-animation-time";
 import { SpectatorDisplay } from "@/components/ocean/SpectatorDisplay";
 
-export function HostScreen({ roomCode }: { roomCode: string }) {
+export function HostScreen({ roomCode, lanOrigin = null }: { roomCode: string; lanOrigin?: string | null }) {
   // Constructing a session has no side effects; start()/stop() happen in the effect below.
   const [session] = useState(() => new HostSession({ roomCode, transport: createTransport(roomCode), engine }));
   const snap = useStore(session.store);
@@ -68,7 +68,7 @@ export function HostScreen({ roomCode }: { roomCode: string }) {
         <div className="instrument grid gap-3 rounded-2xl p-5 text-center">
           <p className="font-mono text-xs uppercase tracking-[0.3em] text-mist">Room code</p>
           <p className="font-mono text-5xl font-semibold tracking-[0.3em] text-teal">{roomCode}</p>
-          <JoinQr roomCode={roomCode} />
+          <JoinQr roomCode={roomCode} lanOrigin={lanOrigin} />
         </div>
 
         {isMock && (
