@@ -5,8 +5,10 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { applyAction, createInitialState, getRoleViews, getSpectatorView, step, type SenderRole } from "./index";
-import { BOAT, MAP, MISSION, NETWORK, SONAR, TARGET, WEATHER } from "../config";
-import type { CurrentForecastEntry, GameState, PlayerAction, Vec2 } from "../types";
+import { BOAT, MAP, MISSION, NETWORK, RADIO, SONAR, TARGET, WEATHER } from "../config";
+import type { CurrentForecastEntry, GameState, PlayerAction, SectorId, Vec2 } from "../types";
+import { ALL_SECTORS, sectorCenter } from "../sectors";
+import { MARKERS, signalStrength } from "./actions";
 
 const DT = 1000 / NETWORK.simHz;
 const fresh = (): GameState => createInitialState({ seed: 1, gameId: "test" });
@@ -453,6 +455,122 @@ describe("sonar", () => {
       r.state.sonar.contacts.map((c) => [c.hazardId, c.detectedAtMs]),
       [["b", 0], ["a", SONAR.pingCooldownMs]],
     );
+  });
+});
+
+describe("radio", () => {
+  const scan = (state: GameState, sector: SectorId, sender: SenderRole = "radio") =>
+    applyAction(state, { type: "RADIO_SCAN", sector }, sender);
+  const withTarget = (state: GameState, position: Vec2): GameState => ({ ...state, target: { ...state.target, position } });
+
+  test("signal is 1 only in the target's sector and fades with distance elsewhere", () => {
+    const target = sectorCenter("B2");
+    const byDistance = [...ALL_SECTORS].sort(
+      (a, b) =>
+        Math.hypot(sectorCenter(a).x - target.x, sectorCenter(a).y - target.y) -
+        Math.hypot(sectorCenter(b).x - target.x, sectorCenter(b).y - target.y),
+    );
+    assert.equal(byDistance[0], "B2");
+    const strengths = byDistance.map((sector) => signalStrength(target, sector));
+    assert.equal(strengths[0], 1);
+    for (let i = 1; i < strengths.length; i++) {
+      const s = strengths[i] ?? Number.NaN;
+      assert.ok(s >= 0 && s < 1, `${byDistance[i]} read ${s}`);
+      assert.ok(s <= (strengths[i - 1] ?? Number.NaN), `${byDistance[i]} is farther but stronger`);
+      assert.equal(Math.round(s * 100) / 100, s, "rounded to 2 decimals");
+    }
+    assert.equal(signalStrength(target, "D4"), 0); // far corner is silent
+    // Anywhere inside the sector reads 1, not just the center.
+    assert.equal(signalStrength({ x: 0.26, y: 0.49 }, "B2"), 1);
+  });
+
+  test("a scan records one reading per sector, emits RADIO_SCANNED and never exposes the target", () => {
+    const s0 = withTarget(at(started(), 1_000), { x: 0.82, y: 0.12 });
+    const snapshot = structuredClone(s0);
+    const r = scan(s0, "C1");
+    assert.deepEqual(s0, snapshot, "applyAction mutated its input");
+    assert.equal(r.rejected, null);
+    const strength = signalStrength(s0.target.position, "C1");
+    assert.ok(strength > 0 && strength < 1);
+    assert.deepEqual(r.state.radio.readings, [{ sector: "C1", strength, atMs: 1_000 }]);
+    assert.deepEqual(r.events, [{ type: "RADIO_SCANNED", sector: "C1", strength, atMs: 1_000 }]);
+    assert.equal(r.state.radio.scansUsed, 1);
+    assert.equal(r.state.radio.lastScanAtMs, 1_000);
+
+    const radio = getRoleViews(r.state).radio;
+    assert.deepEqual(radio.readings, r.state.radio.readings);
+    assert.ok(!JSON.stringify(radio).includes("0.82"), "radio view leaks the target x");
+
+    // Scanning other sectors adds readings; rescanning a sector replaces its reading.
+    let s = scan(at(r.state, 1_000 + RADIO.scanCooldownMs), "D1").state;
+    s = scan(at(s, 1_000 + 2 * RADIO.scanCooldownMs), "C1").state;
+    assert.deepEqual(
+      s.radio.readings.map((x) => [x.sector, x.strength, x.atMs]),
+      [
+        ["D1", 1, 1_000 + RADIO.scanCooldownMs],
+        ["C1", strength, 1_000 + 2 * RADIO.scanCooldownMs],
+      ],
+    );
+    assert.equal(s.radio.scansUsed, 3);
+  });
+
+  test("scans are radio-only, need a real sector and are cooldown-limited like scanReadyAtMs", () => {
+    assert.equal(scan(started(), "A1", "captain").rejected, "not_permitted");
+    assert.equal(scan(started(), "E9" as SectorId).rejected, "invalid_payload");
+
+    const first = scan(at(started(), 500), "A1");
+    const readyAt = getRoleViews(first.state).radio.scanReadyAtMs;
+    assert.equal(readyAt, 500 + RADIO.scanCooldownMs);
+    const tooSoon = at(first.state, readyAt - 1);
+    const early = scan(tooSoon, "A2");
+    assert.equal(early.rejected, "cooldown");
+    assert.equal(early.state, tooSoon);
+    assert.equal(scan(at(first.state, readyAt), "A2").rejected, null);
+  });
+});
+
+describe("markers", () => {
+  const markHazard = (state: GameState, x: number, sender: SenderRole = "sonar") =>
+    applyAction(state, { type: "MARK_HAZARD", position: { x, y: 0.5 } }, sender);
+  const markTarget = (state: GameState, x: number) =>
+    applyAction(state, { type: "MARK_TARGET", position: { x, y: 0.2 } }, "radio");
+
+  test("sonar and radio place shared markers that every role sees", () => {
+    const h = markHazard(at(started(), 700), 0.3);
+    assert.equal(h.rejected, null);
+    const marker = { id: "m1", kind: "hazard", position: { x: 0.3, y: 0.5 }, placedBy: "sonar", placedAtMs: 700 };
+    assert.deepEqual(h.state.markers, [marker]);
+    assert.deepEqual(h.events, [{ type: "MARKER_PLACED", marker, atMs: 700 }]);
+
+    const t = markTarget(h.state, 0.8);
+    assert.deepEqual(t.state.markers.map((m) => [m.id, m.kind, m.placedBy]), [
+      ["m1", "hazard", "sonar"],
+      ["m2", "target_guess", "radio"],
+    ]);
+    for (const view of Object.values(getRoleViews(t.state))) assert.deepEqual(view.markers, t.state.markers);
+    assert.deepEqual(getSpectatorView(t.state).markers, t.state.markers);
+  });
+
+  test("permissions and positions are validated", () => {
+    assert.equal(markHazard(started(), 0.3, "captain").rejected, "not_permitted");
+    assert.equal(applyAction(started(), { type: "MARK_TARGET", position: { x: 0.3, y: 0.5 } }, "sonar").rejected, "not_permitted");
+    assert.equal(markHazard(started(), 1.2).rejected, "invalid_payload");
+    assert.equal(markHazard(started(), Number.NaN).rejected, "invalid_payload");
+  });
+
+  test("radio keeps one target guess; sonar keeps its newest hazard marks; ids keep increasing", () => {
+    let s = markTarget(started(), 0.1).state;
+    s = markTarget(s, 0.9).state;
+    assert.deepEqual(s.markers.map((m) => [m.id, m.kind, m.position.x]), [["m2", "target_guess", 0.9]]);
+
+    for (let i = 0; i < MARKERS.maxHazardMarks + 3; i++) s = markHazard(s, i / 20).state;
+    const hazards = s.markers.filter((m) => m.kind === "hazard");
+    assert.equal(hazards.length, MARKERS.maxHazardMarks);
+    assert.deepEqual(hazards.map((m) => m.position.x), [3, 4, 5, 6, 7, 8, 9, 10].map((i) => i / 20));
+    assert.ok(s.markers.some((m) => m.kind === "target_guess"), "hazard cap must not evict the target guess");
+    const ids = s.markers.map((m) => Number(m.id.slice(1)));
+    assert.equal(new Set(ids).size, ids.length, "marker ids are unique");
+    assert.equal(s.markers.at(-1)?.id, `m${2 + MARKERS.maxHazardMarks + 3}`);
   });
 });
 
