@@ -1,0 +1,105 @@
+@import "tailwindcss";
+
+/*
+ * Stormline design tokens. Use these via Tailwind classes (bg-abyss, text-teal, border-hull…)
+ * or via var(--color-*) in canvas code (see components/ocean/palette.ts — keep them in sync).
+ */
+@theme {
+  --color-abyss: #040a16;
+  --color-navy: #081429;
+  --color-deep: #0e1f3d;
+  --color-hull: #1c3358;
+  --color-foam: #e6f1ff;
+  --color-mist: #8aa2c8;
+  --color-teal: #2dd4bf;
+  --color-cyan: #22d3ee;
+  --color-amber: #f5a524;
+  --color-hazard: #ef4444;
+  --color-brass: #d6b16a;
+
+  --font-display: var(--font-chakra), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: var(--color-abyss);
+  color: var(--color-foam);
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background-image:
+    radial-gradient(1200px 600px at 50% -10%, rgb(34 211 238 / 0.08), transparent 60%),
+    radial-gradient(800px 500px at 100% 110%, rgb(45 212 191 / 0.05), transparent 60%);
+  min-height: 100dvh;
+}
+
+/* Instrument panel surface used by stations */
+.instrument {
+  background: linear-gradient(180deg, rgb(14 31 61 / 0.9), rgb(8 20 41 / 0.95));
+  border: 1px solid rgb(45 212 191 / 0.18);
+  box-shadow:
+    inset 0 1px 0 rgb(230 241 255 / 0.04),
+    0 10px 30px -12px rgb(0 0 0 / 0.6);
+}
+
+/* Big touch-friendly range inputs for station controls */
+.helm-range {
+  appearance: none;
+  width: 100%;
+  height: 3rem;
+  background: transparent;
+  touch-action: none;
+}
+.helm-range::-webkit-slider-runnable-track {
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, rgb(45 212 191 / 0.25), rgb(34 211 238 / 0.45));
+}
+.helm-range::-moz-range-track {
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, rgb(45 212 191 / 0.25), rgb(34 211 238 / 0.45));
+}
+.helm-range::-webkit-slider-thumb {
+  appearance: none;
+  margin-top: -1rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 9999px;
+  background: var(--color-foam);
+  border: 3px solid var(--color-teal);
+  box-shadow: 0 0 16px rgb(45 212 191 / 0.6);
+}
+.helm-range::-moz-range-thumb {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 9999px;
+  background: var(--color-foam);
+  border: 3px solid var(--color-teal);
+  box-shadow: 0 0 16px rgb(45 212 191 / 0.6);
+}
+
+@keyframes sonar-sweep {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+.sonar-sweep {
+  transform-origin: 50% 50%;
+  animation: sonar-sweep 3.2s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sonar-sweep {
+    animation: none;
+  }
+}
