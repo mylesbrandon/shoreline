@@ -78,10 +78,12 @@ export function applyAction(state: GameState, action: PlayerAction, sender: Send
         rejected: null,
       };
 
-    // TODO(dev1, FIRST TASK): store rudder/throttle on the boat (they take effect in step()).
+    // Continuous "set" controls: stored on the boat, applied by step().
     case "STEER":
+      return { state: { ...state, boat: { ...state.boat, rudder: action.rudder } }, events: [], rejected: null };
+
     case "SET_THROTTLE":
-      return { state, events: [], rejected: null };
+      return { state: { ...state, boat: { ...state.boat, throttle: action.throttle } }, events: [], rejected: null };
 
     // TODO(dev1, later): cooldown check → reveal hazards within SONAR.pingRange, record contacts,
     // emit SONAR_PINGED. Return rejected: "cooldown" if pinged too recently.
