@@ -22,17 +22,26 @@ const TONES = {
 
 export function CooldownButton({ label, nowMs, readyAtMs, cooldownMs, onPress, disabled, tone = "cyan" }: CooldownButtonProps) {
   const remaining = Math.max(0, readyAtMs - nowMs);
-  const ready = remaining === 0 && !disabled;
+  const cooling = remaining > 0;
+  const ready = !cooling && !disabled;
   const fill = cooldownMs > 0 ? 1 - remaining / cooldownMs : 1;
+  const caption = cooling ? `${(remaining / 1000).toFixed(1)}s` : label;
+
   return (
     <button
       type="button"
       disabled={!ready}
       onClick={onPress}
-      className={`relative h-16 w-full overflow-hidden rounded-xl border-2 bg-navy font-display text-lg font-semibold uppercase tracking-[0.2em] transition active:scale-[0.98] disabled:opacity-60 ${TONES[tone]}`}
+      aria-label={cooling ? `${label}, ready in ${caption}` : label}
+      className={`relative h-16 min-h-11 w-full overflow-hidden rounded-xl border-2 bg-navy font-display text-lg font-semibold uppercase tracking-[0.2em] transition active:scale-[0.98] disabled:opacity-60 ${TONES[tone]}`}
     >
-      <span className="absolute inset-y-0 left-0 bg-current opacity-15" style={{ width: `${Math.min(1, fill) * 100}%` }} />
-      <span className="relative">{remaining > 0 ? `${(remaining / 1000).toFixed(1)}s` : label}</span>
+      <span
+        className="absolute inset-y-0 left-0 bg-current opacity-15"
+        style={{ width: `${Math.min(1, Math.max(0, fill)) * 100}%` }}
+      />
+      <span className="relative" aria-live="polite">
+        {caption}
+      </span>
     </button>
   );
 }
