@@ -5,7 +5,7 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { applyAction, createInitialState, getRoleViews, getSpectatorView, step, type SenderRole } from "./index";
-import { BOAT, MAP, MISSION, NETWORK, TARGET, WEATHER } from "../config";
+import { BOAT, MAP, MISSION, NETWORK, SONAR, TARGET, WEATHER } from "../config";
 import type { CurrentForecastEntry, GameState, PlayerAction, Vec2 } from "../types";
 
 const DT = 1000 / NETWORK.simHz;
@@ -364,6 +364,95 @@ describe("weather", () => {
     assert.ok(a.stats.shieldsUsed >= 2, `expected several shields, got ${a.stats.shieldsUsed}`);
     assert.deepEqual(a.weather.forecast, []);
     assert.deepEqual(a.weather.current, { x: -0.03, y: 0 });
+  });
+});
+
+describe("sonar", () => {
+  const ping = (state: GameState, sender: SenderRole = "sonar") => applyAction(state, { type: "SONAR_PING" }, sender);
+
+  /**
+   * Replace the hazards with test ones placed `d` east of the boat. Each spreads a real starter
+   * hazard, so these stay valid if the Hazard contract gains fields.
+   */
+  function hazardsEastOfBoat(state: GameState, hazards: { id: string; d: number; radius: number }[]): GameState {
+    const template = state.hazards[0];
+    assert.ok(template, "starter layout has hazards");
+    const { x, y } = state.boat.position;
+    return {
+      ...state,
+      hazards: hazards.map(({ id, d, radius }) => ({ ...template, id, radius, revealed: false, position: { x: x + d, y } })),
+    };
+  }
+
+  test("a ping reveals hazards within range, records contacts and emits SONAR_PINGED", () => {
+    const r0 = 0.03;
+    const s = hazardsEastOfBoat(at(started(), 2_000), [
+      { id: "near", d: 0.1, radius: r0 },
+      { id: "edge", d: SONAR.pingRange + r0 - 0.001, radius: r0 }, // only its rim is in range
+      { id: "far", d: SONAR.pingRange + r0 + 0.001, radius: r0 },
+    ]);
+    const snapshot = structuredClone(s);
+    const r = ping(s);
+    assert.deepEqual(s, snapshot, "applyAction mutated its input");
+    assert.equal(r.rejected, null);
+
+    const origin = s.boat.position;
+    assert.deepEqual(r.events, [{ type: "SONAR_PINGED", origin, contactsFound: 2, atMs: 2_000 }]);
+    assert.deepEqual(
+      r.state.hazards.map((h) => [h.id, h.revealed]),
+      [["near", true], ["edge", true], ["far", false]],
+    );
+    assert.deepEqual(
+      r.state.sonar.contacts.map((c) => [c.hazardId, c.detectedAtMs]),
+      [["near", 2_000], ["edge", 2_000]],
+    );
+    assert.equal(r.state.sonar.pingsUsed, 1);
+    assert.equal(r.state.sonar.lastPingAtMs, 2_000);
+    assert.deepEqual(r.state.sonar.lastPingOrigin, origin);
+
+    // Revealed hazards reach the captain and spectator, the unrevealed one stays hidden.
+    const views = getRoleViews(r.state);
+    assert.deepEqual(views.sonar.contacts, r.state.sonar.contacts);
+    assert.deepEqual(views.captain.visibleHazards.map((h) => h.id).sort(), ["edge", "near"]);
+    assert.deepEqual(getSpectatorView(r.state).hazards.map((h) => h.id).sort(), ["edge", "near"]);
+  });
+
+  test("pings are sonar-only and cooldown-limited, matching the view's pingReadyAtMs", () => {
+    assert.equal(ping(started(), "captain").rejected, "not_permitted");
+    assert.equal(ping(fresh()).rejected, "wrong_phase");
+
+    const first = ping(at(started(), 1_000));
+    assert.equal(first.rejected, null);
+    const readyAt = getRoleViews(first.state).sonar.pingReadyAtMs;
+    assert.equal(readyAt, 1_000 + SONAR.pingCooldownMs);
+
+    const tooSoon = at(first.state, readyAt - 1);
+    const early = ping(tooSoon);
+    assert.equal(early.rejected, "cooldown");
+    assert.deepEqual(early.events, []);
+    assert.equal(early.state, tooSoon, "a rejected ping returns the unchanged input");
+
+    const again = ping(at(first.state, readyAt));
+    assert.equal(again.rejected, null);
+    assert.equal(again.state.sonar.pingsUsed, 2);
+  });
+
+  test("re-detecting a hazard refreshes its contact instead of duplicating it; old contacts persist", () => {
+    let s = hazardsEastOfBoat(at(started(), 0), [
+      { id: "a", d: 0.1, radius: 0.03 },
+      { id: "b", d: -0.2, radius: 0.03 },
+    ]);
+    s = ping(s).state;
+    // Move the boat so only "a" is in range of the second ping.
+    s = { ...s, boat: { ...s.boat, position: { x: s.boat.position.x + 0.15, y: s.boat.position.y } } };
+    const r = ping(at(s, SONAR.pingCooldownMs));
+    assert.deepEqual(r.events, [
+      { type: "SONAR_PINGED", origin: r.state.boat.position, contactsFound: 1, atMs: SONAR.pingCooldownMs },
+    ]);
+    assert.deepEqual(
+      r.state.sonar.contacts.map((c) => [c.hazardId, c.detectedAtMs]),
+      [["b", 0], ["a", SONAR.pingCooldownMs]],
+    );
   });
 });
 
