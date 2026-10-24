@@ -5,7 +5,7 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { applyAction, createInitialState, getRoleViews, getSpectatorView, step, type SenderRole } from "./index";
-import { BOAT, MAP, MISSION, NETWORK, WEATHER } from "../config";
+import { BOAT, MAP, MISSION, NETWORK, TARGET, WEATHER } from "../config";
 import type { CurrentForecastEntry, GameState, PlayerAction, Vec2 } from "../types";
 
 const DT = 1000 / NETWORK.simHz;
@@ -364,6 +364,67 @@ describe("weather", () => {
     assert.ok(a.stats.shieldsUsed >= 2, `expected several shields, got ${a.stats.shieldsUsed}`);
     assert.deepEqual(a.weather.forecast, []);
     assert.deepEqual(a.weather.current, { x: -0.03, y: 0 });
+  });
+});
+
+describe("rescue and score", () => {
+  /** Calm water, boat parked `offset` east of the Gull, mission clock at `elapsedMs`. */
+  function nearGull(offset: number, elapsedMs: number, hull: number = BOAT.startHull): GameState {
+    const s = withCurrent(at(started(), elapsedMs), { x: 0, y: 0 });
+    const position = { x: s.target.position.x + offset, y: s.target.position.y };
+    return { ...s, boat: { ...s.boat, position, hull } };
+  }
+
+  test("reaching the Gull ends the mission in victory with a score", () => {
+    let s = nearGull(TARGET.rescueRadius * 0.9, 29_900, 75);
+    s = { ...s, stats: { ...s.stats, shieldsUsed: 2 } };
+    const r = step(s, 100);
+    assert.equal(r.state.mission.phase, "victory");
+    assert.equal(r.state.mission.failureReason, null);
+    assert.deepEqual(r.events, [{ type: "MISSION_ENDED", phase: "victory", reason: null, atMs: 30_000 }]);
+    // 1000 rescue bonus + 60 s left × 10 + 75 hull × 5
+    assert.deepEqual(r.state.mission.score, {
+      timeRemainingMs: 60_000,
+      hullRemaining: 75,
+      hazardsHit: 0,
+      pingsUsed: 0,
+      scansUsed: 0,
+      shieldsUsed: 2,
+      total: 1_975,
+    });
+    assert.equal(step(r.state, DT).state, r.state, "a finished mission doesn't keep simulating");
+    assert.deepEqual(getSpectatorView(r.state).target, s.target);
+  });
+
+  test("a boat just outside the rescue radius keeps searching", () => {
+    const r = step(nearGull(TARGET.rescueRadius + 0.001, 10_000), DT);
+    assert.equal(r.state.mission.phase, "active");
+    assert.equal(r.state.mission.score, null);
+    assert.deepEqual(r.events, []);
+  });
+
+  test("a rescue on the final step beats the timeout", () => {
+    const r = step(nearGull(0, MISSION.durationMs - 1), DT);
+    assert.equal(r.state.mission.phase, "victory");
+    assert.deepEqual(r.events, [{ type: "MISSION_ENDED", phase: "victory", reason: null, atMs: MISSION.durationMs }]);
+    assert.equal(r.state.mission.score?.timeRemainingMs, 0);
+    assert.equal(r.state.mission.score?.total, 1_500); // bonus + full hull, no time left
+  });
+
+  test("a timeout scores 0 but still reports the mission stats", () => {
+    let s = withCurrent(started(), { x: 0, y: 0 });
+    s = shield(s).state;
+    const r = step(at(s, MISSION.durationMs - 1), DT);
+    assert.equal(r.state.mission.phase, "failure");
+    assert.deepEqual(r.state.mission.score, {
+      timeRemainingMs: 0,
+      hullRemaining: BOAT.startHull,
+      hazardsHit: 0,
+      pingsUsed: 0,
+      scansUsed: 0,
+      shieldsUsed: 1,
+      total: 0,
+    });
   });
 });
 
