@@ -76,6 +76,15 @@ export function loadIdentity(roomCode: string): StoredIdentity | null {
   return parse(read("session", tabKey(roomCode))) ?? parse(read("local", lastKey(roomCode)));
 }
 
+/**
+ * Only the identity THIS TAB already claimed (step 1 above) — set iff this tab joined and then
+ * reloaded. Used to rejoin automatically without re-asking for a name; a brand-new tab gets null
+ * here even when localStorage has a "last id", so extra tabs stay separate players.
+ */
+export function loadTabIdentity(roomCode: string): StoredIdentity | null {
+  return parse(read("session", tabKey(roomCode)));
+}
+
 export function saveIdentity(roomCode: string, name: string): StoredIdentity {
   const mine = parse(read("session", tabKey(roomCode)));
   const last = parse(read("local", lastKey(roomCode)));

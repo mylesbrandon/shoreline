@@ -99,7 +99,7 @@ export class SupabaseRoomTransport implements RoomTransport {
     });
 
     channel.on("presence", { event: "sync" }, () => {
-      const members = flattenPresence(channel.presenceState() as Record<string, unknown[]>);
+      const members = flattenPresence(channel.presenceState());
       for (const h of this.presenceHandlers) h(members);
     });
 

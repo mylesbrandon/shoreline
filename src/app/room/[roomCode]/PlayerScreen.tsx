@@ -3,12 +3,12 @@
  * Player phone screen: name entry → lobby → role station → results. OWNER: Developer 2.
  */
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PlayerSession } from "@/lib/game-client/player-session";
 import { useStore } from "@/lib/game-client/hooks";
 import { createTransport } from "@/lib/realtime/create-transport";
 import { resolveTransportKind } from "@/lib/realtime/env";
-import { saveIdentity } from "@/lib/realtime/player-identity";
+import { loadTabIdentity, saveIdentity, type StoredIdentity } from "@/lib/realtime/player-identity";
 import { ConnectionBanner } from "@/components/shared/ConnectionBanner";
 import { ModeBadge } from "@/components/shared/ModeBadge";
 import { isMissionOver, MissionResults } from "@/components/shared/MissionResults";
@@ -16,15 +16,40 @@ import { MissionClock } from "@/components/shared/MissionClock";
 import { RoleStation } from "@/components/shared/RoleStation";
 import { ROLE_INFO } from "@/components/shared/roles";
 
+/**
+ * "checking" lasts until the mount effect has looked for this tab's stored identity — storage can
+ * only be read after mount, so the answer can't be known during the first render. One state value
+ * (not three) keeps that a single transition.
+ */
+type Boarding =
+  | { phase: "checking" }
+  | { phase: "form"; name: string }
+  | { phase: "joined"; session: PlayerSession };
+
 export function PlayerScreen({ roomCode, initialName }: { roomCode: string; initialName: string }) {
   const isMock = resolveTransportKind() === "mock";
-  const [name, setName] = useState(initialName);
-  const [session, setSession] = useState<PlayerSession | null>(null);
+  const [boarding, setBoarding] = useState<Boarding>(
+    isMock ? { phase: "form", name: initialName } : { phase: "checking" },
+  );
+  const restored = useRef(false);
 
-  const join = () => {
-    const identity = saveIdentity(roomCode, name.trim() || "Sailor");
-    setSession(new PlayerSession({ transport: createTransport(roomCode), identity }));
-  };
+  const join = (identity: StoredIdentity) =>
+    setBoarding({ phase: "joined", session: new PlayerSession({ transport: createTransport(roomCode), identity }) });
+
+  // Reloading mid-game must come back as the SAME player, so the host hands back the same role
+  // (hello → room + views). Only this tab's own id counts: a fresh tab still gets the name form,
+  // so several tabs in one browser stay separate players.
+  useEffect(() => {
+    if (isMock || restored.current) return;
+    restored.current = true;
+    const mine = loadTabIdentity(roomCode);
+    setBoarding(
+      mine
+        ? // saveIdentity re-claims this tab's lease on the id.
+          { phase: "joined", session: new PlayerSession({ transport: createTransport(roomCode), identity: saveIdentity(roomCode, mine.name) }) }
+        : { phase: "form", name: initialName },
+    );
+  }, [isMock, roomCode, initialName]);
 
   return (
     <main className="mx-auto grid min-h-dvh max-w-xl content-start gap-4 px-4 py-4">
@@ -37,21 +62,23 @@ export function PlayerScreen({ roomCode, initialName }: { roomCode: string; init
 
       {isMock ? (
         <MockNotice />
-      ) : session ? (
-        <JoinedView session={session} />
+      ) : boarding.phase === "joined" ? (
+        <JoinedView session={boarding.session} />
+      ) : boarding.phase === "checking" ? (
+        <p className="instrument rounded-2xl p-5 text-mist">Reconnecting…</p>
       ) : (
         <form
           className="instrument grid gap-3 rounded-2xl p-5"
           onSubmit={(e) => {
             e.preventDefault();
-            join();
+            join(saveIdentity(roomCode, boarding.name.trim() || "Sailor"));
           }}
         >
           <label className="grid gap-2">
             <span className="font-mono text-xs uppercase tracking-[0.25em] text-mist">Your name</span>
             <input
-              value={name}
-              onChange={(e) => setName(e.target.value.slice(0, 16))}
+              value={boarding.name}
+              onChange={(e) => setBoarding({ phase: "form", name: e.target.value.slice(0, 16) })}
               autoFocus
               className="h-14 rounded-xl border border-hull bg-navy px-4 text-xl text-foam focus:border-teal focus:outline-none"
             />
@@ -106,7 +133,11 @@ function JoinedView({ session }: { session: PlayerSession }) {
         {banner}
         <div className="instrument grid gap-2 rounded-2xl p-5">
           <ModeBadge mode="live" />
-          <p className="text-lg">{snap.room ? "All four stations are crewed — you're watching." : `Contacting host… (${snap.status})`}</p>
+          <p className="text-lg">
+            {snap.room && snap.me
+              ? "All four stations are crewed — you're watching."
+              : `Contacting host… (${snap.status})`}
+          </p>
         </div>
       </div>
     );
