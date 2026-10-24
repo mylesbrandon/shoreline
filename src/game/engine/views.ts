@@ -7,7 +7,7 @@
  * - Unrevealed hazards are visible only to the captain within CAPTAIN.visualRange.
  * - Only the weather specialist gets the forecast and exact current numbers.
  */
-import { CAPTAIN, RADIO, SONAR } from "../config";
+import { CAPTAIN, RADIO, SONAR, WEATHER } from "../config";
 import type { CaptainView, GameState, RadioView, Role, RoleViews, SonarView, SpectatorView, WeatherView } from "../types";
 import { isShieldActive } from "./step";
 
@@ -48,8 +48,11 @@ export function getSonarView(state: GameState): SonarView {
   };
 }
 
+/** The weather specialist sees only the next WEATHER.forecastHorizonMs of the forecast. */
 export function getWeatherView(state: GameState): WeatherView {
-  return { ...base(state), role: "weather", weather: state.weather };
+  const horizonMs = state.mission.elapsedMs + WEATHER.forecastHorizonMs;
+  const forecast = state.weather.forecast.filter((entry) => entry.atMs <= horizonMs);
+  return { ...base(state), role: "weather", weather: { ...state.weather, forecast } };
 }
 
 export function getRadioView(state: GameState): RadioView {
