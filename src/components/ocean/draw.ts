@@ -4,6 +4,7 @@
  * Heading convention: 0 = north (up), clockwise positive — matches src/game/types.ts.
  */
 import type { BoatState, Hazard, Marker, RescueTarget, Vec2 } from "@/game/types";
+import { BOAT } from "@/game/config";
 import { PALETTE } from "./palette";
 
 export interface OceanScene {
@@ -37,6 +38,15 @@ export function drawOcean(ctx: CanvasRenderingContext2D, size: number, timeMs: n
     ctx.stroke();
   }
 
+  // Deterministic wind-driven rain: ambience only, never simulation state.
+  ctx.strokeStyle = `rgba(180, 220, 240, ${storm * 0.18})`;
+  ctx.lineWidth = 0.8;
+  for (let i = 0; i < Math.floor(storm * 100); i++) {
+    const x = ((i * 73.17 + timeMs * 0.035) % size);
+    const y = ((i * 131.7 + timeMs * (0.13 + storm * 0.06)) % size);
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 4, y + 10 + storm * 8); ctx.stroke();
+  }
+
   // Faint 4x4 chart grid (matches radio sectors).
   ctx.strokeStyle = "rgba(138, 162, 200, 0.08)";
   ctx.setLineDash([4, 6]);
@@ -50,6 +60,14 @@ export function drawOcean(ctx: CanvasRenderingContext2D, size: number, timeMs: n
     ctx.stroke();
   }
   ctx.setLineDash([]);
+  ctx.fillStyle = PALETTE.mist;
+  ctx.font = "9px monospace";
+  ctx.globalAlpha = 0.65;
+  for (let i = 0; i < 4; i++) {
+    ctx.fillText("ABCD"[i]!, size * (i + 0.5) / 4, 14);
+    ctx.fillText(String(i + 1), 8, size * (i + 0.5) / 4);
+  }
+  ctx.globalAlpha = 1;
 }
 
 export function drawHazard(ctx: CanvasRenderingContext2D, size: number, h: Hazard, timeMs: number): void {
@@ -70,11 +88,26 @@ export function drawHazard(ctx: CanvasRenderingContext2D, size: number, h: Hazar
   ctx.stroke();
   ctx.setLineDash([]);
   ctx.globalAlpha = 1;
+  ctx.save(); ctx.translate(x, y);
+  ctx.fillStyle = h.kind === "reef" ? PALETTE.brass : PALETTE.mist;
+  ctx.strokeStyle = PALETTE.abyss;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  const points = h.kind === "debris" ? 4 : 7;
+  for (let i = 0; i < points; i++) {
+    const angle = i / points * Math.PI * 2;
+    const radius = r * (i % 2 ? 0.65 : 0.9);
+    if (i === 0) ctx.moveTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
+    else ctx.lineTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
+  }
+  ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
 }
 
 export function drawMarker(ctx: CanvasRenderingContext2D, size: number, m: Marker): void {
   const x = m.position.x * size;
   const y = m.position.y * size;
+  ctx.fillStyle = "rgba(4, 10, 22, 0.8)";
+  ctx.beginPath(); ctx.arc(x, y, 13, 0, Math.PI * 2); ctx.fill();
   ctx.lineWidth = 2.5;
   if (m.kind === "hazard") {
     ctx.strokeStyle = PALETTE.hazard;
@@ -121,7 +154,7 @@ export function drawBoat(ctx: CanvasRenderingContext2D, size: number, boat: Boat
   ctx.rotate(boat.heading);
 
   // Wake
-  const wake = Math.min(1, boat.speed / 0.06);
+  const wake = Math.min(1, boat.speed / BOAT.maxSpeed);
   if (wake > 0.05) {
     ctx.strokeStyle = `rgba(230, 241, 255, ${0.25 * wake})`;
     ctx.lineWidth = 2;
@@ -146,6 +179,18 @@ export function drawBoat(ctx: CanvasRenderingContext2D, size: number, boat: Boat
   ctx.quadraticCurveTo(-s * 0.75, -s * 0.2, 0, -s * 1.2);
   ctx.fill();
   ctx.stroke();
+  ctx.shadowBlur = 0;
+  // Raised wheelhouse, dark glazing and red/green navigation lights.
+  ctx.fillStyle = PALETTE.navy;
+  ctx.fillRect(-s * 0.3, -s * 0.25, s * 0.6, s * 0.7);
+  ctx.fillStyle = PALETTE.cyan;
+  ctx.fillRect(-s * 0.22, -s * 0.17, s * 0.44, s * 0.17);
+  ctx.fillStyle = PALETTE.brass;
+  ctx.fillRect(-s * 0.07, -s * 0.7, s * 0.14, s * 0.35);
+  ctx.fillStyle = PALETTE.hazard;
+  ctx.fillRect(-s * 0.7, s * 0.1, s * 0.16, s * 0.16);
+  ctx.fillStyle = PALETTE.teal;
+  ctx.fillRect(s * 0.54, s * 0.1, s * 0.16, s * 0.16);
   ctx.restore();
 }
 
@@ -153,7 +198,7 @@ export function drawCurrentArrow(ctx: CanvasRenderingContext2D, size: number, cu
   const mag = Math.hypot(current.x, current.y);
   if (mag < 1e-6) return;
   const cx = size - 36;
-  const cy = 36;
+  const cy = 144;
   const len = Math.min(24, 8 + (mag / 0.03) * 16);
   const ux = current.x / mag;
   const uy = current.y / mag;
@@ -172,6 +217,10 @@ export function drawCurrentArrow(ctx: CanvasRenderingContext2D, size: number, cu
   ctx.beginPath();
   ctx.arc(cx + ux * len, cy + uy * len, 3, 0, Math.PI * 2);
   ctx.fill();
+  ctx.font = "8px monospace";
+  ctx.textAlign = "center";
+  ctx.fillText("CURRENT", cx, cy + 38);
+  ctx.textAlign = "start";
 }
 
 export function drawScene(ctx: CanvasRenderingContext2D, size: number, scene: OceanScene, timeMs: number): void {
@@ -182,3 +231,4 @@ export function drawScene(ctx: CanvasRenderingContext2D, size: number, scene: Oc
   drawBoat(ctx, size, scene.boat);
   if (scene.current) drawCurrentArrow(ctx, size, scene.current);
 }
+
