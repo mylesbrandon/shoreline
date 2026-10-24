@@ -16,12 +16,12 @@ export interface CreateStateOptions {
  * (see ./rng.ts). Keep the target far from the boat start and leave at least one safe channel.
  */
 const STARTER_HAZARDS: Hazard[] = [
-  { id: "h1", kind: "reef", position: { x: 0.32, y: 0.7 }, radius: 0.045, revealed: false },
-  { id: "h2", kind: "rock", position: { x: 0.62, y: 0.62 }, radius: 0.03, revealed: false },
-  { id: "h3", kind: "reef", position: { x: 0.45, y: 0.45 }, radius: 0.05, revealed: false },
-  { id: "h4", kind: "debris", position: { x: 0.75, y: 0.38 }, radius: 0.025, revealed: false },
-  { id: "h5", kind: "reef", position: { x: 0.2, y: 0.3 }, radius: 0.04, revealed: false },
-  { id: "h6", kind: "rock", position: { x: 0.55, y: 0.2 }, radius: 0.035, revealed: false },
+  { id: "h1", kind: "reef", position: { x: 0.32, y: 0.7 }, radius: 0.045, revealed: false, lastHitAtMs: null },
+  { id: "h2", kind: "rock", position: { x: 0.62, y: 0.62 }, radius: 0.03, revealed: false, lastHitAtMs: null },
+  { id: "h3", kind: "reef", position: { x: 0.45, y: 0.45 }, radius: 0.05, revealed: false, lastHitAtMs: null },
+  { id: "h4", kind: "debris", position: { x: 0.75, y: 0.38 }, radius: 0.025, revealed: false, lastHitAtMs: null },
+  { id: "h5", kind: "reef", position: { x: 0.2, y: 0.3 }, radius: 0.04, revealed: false, lastHitAtMs: null },
+  { id: "h6", kind: "rock", position: { x: 0.55, y: 0.2 }, radius: 0.035, revealed: false, lastHitAtMs: null },
 ];
 
 export function createInitialState({ seed, gameId }: CreateStateOptions): GameState {

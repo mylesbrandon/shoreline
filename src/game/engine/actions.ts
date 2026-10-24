@@ -4,9 +4,21 @@
  * Pure functions: never mutate `state`, never read the clock, never touch the network.
  * Seq-based dedupe of envelopes happens BEFORE this, in the host session (src/lib/game-client).
  */
+import { RADIO, SONAR, WEATHER } from "../config";
 import { ACTION_PERMISSIONS } from "../types";
-import type { ActionRejectReason, GameEvent, GameState, PlayerAction, Role } from "../types";
-import { isSectorId } from "../sectors";
+import type {
+  ActionRejectReason,
+  GameEvent,
+  GameState,
+  Marker,
+  PlayerAction,
+  Role,
+  SectorId,
+  SignalReading,
+  SonarContact,
+  Vec2,
+} from "../types";
+import { isSectorId, sectorCenter, sectorOf } from "../sectors";
 
 export type SenderRole = Role | "host";
 
@@ -18,6 +30,7 @@ export interface ActionResult {
 }
 
 const isFiniteNumber = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n);
+const distance = (a: Vec2, b: Vec2) => Math.hypot(a.x - b.x, a.y - b.y);
 const inUnitSquare = (p: { x: number; y: number }) =>
   isFiniteNumber(p.x) && isFiniteNumber(p.y) && p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1;
 
@@ -78,28 +91,149 @@ export function applyAction(state: GameState, action: PlayerAction, sender: Send
         rejected: null,
       };
 
-    // TODO(dev1, FIRST TASK): store rudder/throttle on the boat (they take effect in step()).
+    // Continuous "set" controls: stored on the boat, applied by step().
     case "STEER":
+      return { state: { ...state, boat: { ...state.boat, rudder: action.rudder } }, events: [], rejected: null };
+
     case "SET_THROTTLE":
-      return { state, events: [], rejected: null };
+      return { state: { ...state, boat: { ...state.boat, throttle: action.throttle } }, events: [], rejected: null };
 
-    // TODO(dev1, later): cooldown check → reveal hazards within SONAR.pingRange, record contacts,
-    // emit SONAR_PINGED. Return rejected: "cooldown" if pinged too recently.
-    case "SONAR_PING":
-      return { state, events: [], rejected: null };
+    case "SONAR_PING": {
+      const { elapsedMs } = state.mission;
+      const { lastPingAtMs } = state.sonar;
+      // Same rule as SonarView.pingReadyAtMs, so the button and the engine agree.
+      if (lastPingAtMs !== null && elapsedMs < lastPingAtMs + SONAR.pingCooldownMs) {
+        return { state, events: [], rejected: "cooldown" };
+      }
+      const origin = { ...state.boat.position };
+      // Any part of the hazard inside the sweep counts, matching the captain's lookout rule.
+      const found = state.hazards.filter((h) => distance(h.position, origin) <= SONAR.pingRange + h.radius);
+      const foundIds = new Set(found.map((h) => h.id));
+      const detected = found.map(
+        (h): SonarContact => ({ hazardId: h.id, position: h.position, radius: h.radius, kind: h.kind, detectedAtMs: elapsedMs }),
+      );
+      return {
+        state: {
+          ...state,
+          hazards: state.hazards.map((h) => (foundIds.has(h.id) && !h.revealed ? { ...h, revealed: true } : h)),
+          sonar: {
+            lastPingAtMs: elapsedMs,
+            lastPingOrigin: origin,
+            // Re-detected hazards replace their old contact (no duplicates) so the scope's age fade restarts.
+            contacts: [...state.sonar.contacts.filter((c) => !foundIds.has(c.hazardId)), ...detected],
+            pingsUsed: state.sonar.pingsUsed + 1,
+          },
+        },
+        events: [{ type: "SONAR_PINGED", origin, contactsFound: found.length, atMs: elapsedMs }],
+        rejected: null,
+      };
+    }
 
-    // TODO(dev1, later): append a shared Marker (cap the list, e.g. last 8), emit MARKER_PLACED.
+    // Shared markers everyone sees. Sonar keeps its last MARKERS.maxHazardMarks hazard marks;
+    // radio has a single "we think they're here" guess that each new guess moves.
     case "MARK_HAZARD":
-    case "MARK_TARGET":
-      return { state, events: [], rejected: null };
+    case "MARK_TARGET": {
+      const { elapsedMs } = state.mission;
+      const marker: Marker = {
+        id: nextMarkerId(state.markers),
+        kind: action.type === "MARK_HAZARD" ? "hazard" : "target_guess",
+        position: { x: action.position.x, y: action.position.y },
+        placedBy: action.type === "MARK_HAZARD" ? "sonar" : "radio",
+        placedAtMs: elapsedMs,
+      };
+      const kept =
+        marker.kind === "target_guess"
+          ? state.markers.filter((m) => m.kind !== "target_guess")
+          : dropOldestHazardMarks(state.markers, MARKERS.maxHazardMarks - 1);
+      return {
+        state: { ...state, markers: [...kept, marker] },
+        events: [{ type: "MARKER_PLACED", marker, atMs: elapsedMs }],
+        rejected: null,
+      };
+    }
 
-    // TODO(dev1, later): cooldown check → set shieldActiveUntilMs / shieldReadyAtMs, emit SHIELD_ACTIVATED.
-    case "WEATHER_SHIELD":
-      return { state, events: [], rejected: null };
+    // step() dampens the current while elapsedMs < shieldActiveUntilMs.
+    case "WEATHER_SHIELD": {
+      const { elapsedMs } = state.mission;
+      if (elapsedMs < state.weather.shieldReadyAtMs) return { state, events: [], rejected: "cooldown" };
+      const untilMs = elapsedMs + WEATHER.shieldDurationMs;
+      return {
+        state: {
+          ...state,
+          weather: {
+            ...state.weather,
+            shieldActiveUntilMs: untilMs,
+            shieldReadyAtMs: elapsedMs + WEATHER.shieldCooldownMs,
+          },
+          stats: { ...state.stats, shieldsUsed: state.stats.shieldsUsed + 1 },
+        },
+        events: [{ type: "SHIELD_ACTIVATED", untilMs, atMs: elapsedMs }],
+        rejected: null,
+      };
+    }
 
-    // TODO(dev1, later): cooldown check → strength from distance(target, sectorCenter) → append
-    // SignalReading, emit RADIO_SCANNED. Never put the target position itself in the reading.
-    case "RADIO_SCAN":
-      return { state, events: [], rejected: null };
+    // The reading carries only sector + strength; the target position never leaves the engine.
+    case "RADIO_SCAN": {
+      const { elapsedMs } = state.mission;
+      const { lastScanAtMs } = state.radio;
+      // Same rule as RadioView.scanReadyAtMs, so the button and the engine agree.
+      if (lastScanAtMs !== null && elapsedMs < lastScanAtMs + RADIO.scanCooldownMs) {
+        return { state, events: [], rejected: "cooldown" };
+      }
+      const reading: SignalReading = {
+        sector: action.sector,
+        strength: signalStrength(state.target.position, action.sector),
+        atMs: elapsedMs,
+      };
+      return {
+        state: {
+          ...state,
+          radio: {
+            // One reading per sector (the latest), so rescanning updates the heat map instead of growing it.
+            readings: [...state.radio.readings.filter((r) => r.sector !== action.sector), reading],
+            lastScanAtMs: elapsedMs,
+            scansUsed: state.radio.scansUsed + 1,
+          },
+        },
+        events: [{ type: "RADIO_SCANNED", sector: reading.sector, strength: reading.strength, atMs: elapsedMs }],
+        rejected: null,
+      };
+    }
   }
+}
+
+/** Engine-owned radio/marker tuning (not in config.ts: nothing outside the engine depends on it). */
+export const SIGNAL = {
+  /** Distance from the target at which a sector's signal fades to 0 (~2.5 sectors). */
+  falloff: 0.6,
+} as const;
+
+export const MARKERS = {
+  /** Sonar hazard marks kept on the map; the oldest drops off first. */
+  maxHazardMarks: 8,
+} as const;
+
+/**
+ * Signal strength for a radio scan: 1 when the target is in the sector, otherwise fading linearly
+ * with the distance from the target to the sector's center. A target outside a sector is at least
+ * half a sector from its center, so only the target's own sector can read 1. Rounded to 2 decimals
+ * because the UI shows bars, and full precision would let three readings triangulate the target.
+ */
+export function signalStrength(target: Vec2, sector: SectorId): number {
+  if (sectorOf(target) === sector) return 1;
+  const raw = 1 - distance(target, sectorCenter(sector)) / SIGNAL.falloff;
+  return Math.round(Math.min(1, Math.max(0, raw)) * 100) / 100;
+}
+
+/** Keep at most `keep` hazard marks (the newest), leaving other marker kinds untouched. */
+function dropOldestHazardMarks(markers: Marker[], keep: number): Marker[] {
+  const excess = markers.filter((m) => m.kind === "hazard").length - keep;
+  if (excess <= 0) return markers;
+  let dropped = 0;
+  return markers.filter((m) => !(m.kind === "hazard" && dropped++ < excess));
+}
+
+/** Next marker id: one past the highest current `m<N>`, so ids increase and never clash on screen. */
+function nextMarkerId(markers: Marker[]): string {
+  return `m${markers.reduce((max, m) => Math.max(max, Number(m.id.slice(1)) || 0), 0) + 1}`;
 }
