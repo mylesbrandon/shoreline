@@ -204,8 +204,8 @@ export function applyAction(state: GameState, action: PlayerAction, sender: Send
 
 /** Engine-owned radio/marker tuning (not in config.ts: nothing outside the engine depends on it). */
 export const SIGNAL = {
-  /** Distance from the target at which a sector's signal fades to 0 (~2.5 sectors). */
-  falloff: 0.6,
+  /** Distance from the target at which a sector's signal fades to 0 (1.5 sectors: only neighbours register). */
+  falloff: 1.5 / RADIO.grid,
 } as const;
 
 export const MARKERS = {

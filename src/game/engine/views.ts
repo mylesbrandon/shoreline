@@ -4,7 +4,7 @@
  *
  * Rules (see docs/CONTRACTS.md "Hidden information"):
  * - Nobody but the engine sees `target` until the mission ends (spectator gets it at the end).
- * - Unrevealed hazards are visible only to the captain within CAPTAIN.visualRange.
+ * - The captain sees hazards within CAPTAIN.visualRange, plus sonar contacts for a few seconds.
  * - Only the weather specialist gets the forecast and exact current numbers.
  */
 import { CAPTAIN, RADIO, SONAR, WEATHER } from "../config";
@@ -23,13 +23,29 @@ function base(state: GameState) {
   };
 }
 
+/** Engine-owned view tuning (not in config.ts: nothing outside the engine depends on it). */
+export const CAPTAIN_VIEW = {
+  /** A sonar contact shows on the Captain's screen for this long, then only Sonar's marks remain. */
+  sonarRevealMs: 5_000,
+} as const;
+
+/**
+ * The Captain sees hazards in lookout range plus Sonar contacts from the last few seconds.
+ * Reveals expire on purpose (playtest: persistent reveals let the Captain build a hazard map and
+ * stop listening to Sonar). `Hazard.revealed` stays set for the spectator.
+ */
 export function getCaptainView(state: GameState): CaptainView {
   const shieldActive = isShieldActive(state.weather, state.mission.elapsedMs);
+  const freshContacts = new Set(
+    state.sonar.contacts
+      .filter((c) => state.mission.elapsedMs - c.detectedAtMs < CAPTAIN_VIEW.sonarRevealMs)
+      .map((c) => c.hazardId),
+  );
   return {
     ...base(state),
     role: "captain",
     visibleHazards: state.hazards.filter(
-      (h) => h.revealed || dist(h.position, state.boat.position) <= CAPTAIN.visualRange + h.radius,
+      (h) => freshContacts.has(h.id) || dist(h.position, state.boat.position) <= CAPTAIN.visualRange + h.radius,
     ),
     current: state.weather.current,
     stormIntensity: state.weather.stormIntensity,

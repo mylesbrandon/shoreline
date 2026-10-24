@@ -6,10 +6,12 @@ import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { applyAction, createInitialState, getRoleViews, getSpectatorView, step, type SenderRole } from "./index";
 import { BOAT, HAZARDS, MAP, MISSION, NETWORK, RADIO, SONAR, TARGET, WEATHER } from "../config";
-import type { CurrentForecastEntry, GameState, PlayerAction, SectorId, Vec2 } from "../types";
-import { ALL_SECTORS, sectorCenter } from "../sectors";
+import type { CurrentForecastEntry, GameState, Hazard, PlayerAction, SectorId, Vec2 } from "../types";
+import { ALL_SECTORS, sectorCenter, sectorOf } from "../sectors";
 import { MARKERS, signalStrength } from "./actions";
-import { LAYOUT } from "./layout";
+import { generateLayout, LAYOUT } from "./layout";
+import { GULL_DRIFT } from "./step";
+import { CAPTAIN_VIEW } from "./views";
 
 const DT = 1000 / NETWORK.simHz;
 const fresh = (): GameState => createInitialState({ seed: 1, gameId: "test" });
@@ -35,11 +37,12 @@ function withCurrent(state: GameState, current: Vec2, forecast: CurrentForecastE
 }
 
 /**
- * No hazards and the Gull parked off the map: for tests about movement alone, so a seeded reef
- * or an early rescue can't end the mission halfway through the path being checked.
+ * No hazards and no reachable Gull: for tests about movement alone, so a seeded reef or an early
+ * rescue can't end the mission halfway through the path being checked. (The Gull drifts back onto
+ * the map, so a zero rescue radius is what makes it unreachable.)
  */
 function openWater(state: GameState): GameState {
-  return { ...state, hazards: [], target: { ...state.target, position: { x: -1, y: -1 } } };
+  return { ...state, hazards: [], target: { position: { x: -1, y: -1 }, rescueRadius: 0 } };
 }
 
 /** Jump the mission clock without simulating (for cooldown boundaries). */
@@ -143,48 +146,75 @@ describe("seeded layout", () => {
     }
   });
 
-  test("every seed leaves a hazard-free channel from the start to the Gull", () => {
-    // Independent of how layout.ts builds its channel: flood-fill a grid of water cells that keep
-    // `clearance` from every hazard rim and check the Gull's cell is reachable from the start.
+  /**
+   * Independent of how layout.ts builds its channel: flood-fill a grid of water cells that keep
+   * `clearance` from every hazard rim and check the Gull's cell is reachable from the start.
+   */
+  function gullReachable(hazards: Hazard[], target: Vec2): boolean {
     const N = 80;
     const clearance = 0.02;
     const cell = (p: Vec2) => [Math.min(N - 1, Math.floor(p.x * N)), Math.min(N - 1, Math.floor(p.y * N))] as const;
+    const free = (cx: number, cy: number) => {
+      const c = { x: (cx + 0.5) / N, y: (cy + 0.5) / N };
+      return hazards.every((h) => d(c, h.position) > h.radius + clearance);
+    };
+    const [sx, sy] = cell(MISSION.boatStart);
+    const [tx, ty] = cell(target);
+    const seen = new Set<number>([sy * N + sx]);
+    const queue: [number, number][] = [[sx, sy]];
+    for (let next = queue.shift(); next; next = queue.shift()) {
+      const [x, y] = next;
+      for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]] as const) {
+        if (nx < 0 || ny < 0 || nx >= N || ny >= N || seen.has(ny * N + nx) || !free(nx, ny)) continue;
+        seen.add(ny * N + nx);
+        queue.push([nx, ny]);
+      }
+    }
+    return seen.has(ty * N + tx);
+  }
+
+  test("every seed leaves a hazard-free channel from the start to the Gull", () => {
     for (const seed of SEEDS) {
       const s = layoutFor(seed);
-      const free = (cx: number, cy: number) => {
-        const c = { x: (cx + 0.5) / N, y: (cy + 0.5) / N };
-        return s.hazards.every((h) => d(c, h.position) > h.radius + clearance);
-      };
-      const [sx, sy] = cell(MISSION.boatStart);
-      const [tx, ty] = cell(s.target.position);
-      const seen = new Set<number>([sy * N + sx]);
-      const queue: [number, number][] = [[sx, sy]];
-      for (let next = queue.shift(); next; next = queue.shift()) {
-        const [x, y] = next;
-        for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]] as const) {
-          if (nx < 0 || ny < 0 || nx >= N || ny >= N || seen.has(ny * N + nx) || !free(nx, ny)) continue;
-          seen.add(ny * N + nx);
-          queue.push([nx, ny]);
-        }
-      }
-      assert.ok(seen.has(ty * N + tx), `seed ${seed}: no safe channel to the Gull`);
+      assert.ok(gullReachable(s.hazards, s.target.position), `seed ${seed}: no safe channel to the Gull`);
     }
   });
 
-  test("every seed has a sorted forecast of several in-range current shifts", () => {
+  test("a denser field of 22 hazards (playtest fix 4) still fills and stays navigable on 50 seeds", () => {
+    for (let seed = 0; seed < 50; seed++) {
+      const layout = generateLayout(seed, 22);
+      assert.equal(layout.hazards.length, 22, `seed ${seed}: only placed ${layout.hazards.length}`);
+      assert.ok(gullReachable(layout.hazards, layout.target), `seed ${seed}: no safe channel with 22 hazards`);
+    }
+  });
+
+  test("every seed's forecast is a calm base current plus 10–12 short gusts", () => {
     const strength = (v: Vec2) => Math.hypot(v.x, v.y);
     for (const seed of SEEDS) {
       const w = layoutFor(seed).weather;
       const where = `seed ${seed}`;
-      assert.ok(w.forecast.length >= 3, `${where}: only ${w.forecast.length} shifts`);
-      assert.ok(strength(w.current) <= WEATHER.maxCurrent + 1e-12, `${where}: opening current too strong`);
+      assert.ok(strength(w.current) <= LAYOUT.baseCurrent[1] + 1e-12, `${where}: base current not calm`);
+      assert.equal(w.forecast.length % 2, 0, `${where}: gusts come in start/end pairs`);
+      const gusts = w.forecast.length / 2;
+      assert.ok(gusts >= LAYOUT.gustCount[0] && gusts <= LAYOUT.gustCount[1], `${where}: ${gusts} gusts`);
+
       let prev = 0;
-      for (const entry of w.forecast) {
-        assert.ok(entry.atMs > prev, `${where}: forecast not sorted`);
-        assert.ok(entry.atMs <= MISSION.durationMs - LAYOUT.lastShiftBeforeEndMs, `${where}: shift too late`);
-        assert.ok(Number.isInteger(entry.atMs), `${where}: atMs should be whole ms`);
-        assert.ok(strength(entry.current) <= WEATHER.maxCurrent + 1e-12, `${where}: shift too strong`);
-        prev = entry.atMs;
+      let prevGustAtMs: number | null = null;
+      for (let i = 0; i < w.forecast.length; i += 2) {
+        const gust = w.forecast[i];
+        const calm = w.forecast[i + 1];
+        assert.ok(gust && calm);
+        assert.ok(gust.atMs > prev && Number.isInteger(gust.atMs), `${where}: forecast not sorted whole ms`);
+        assert.equal(calm.atMs - gust.atMs, LAYOUT.gustDurationMs, `${where}: gust length`);
+        assert.deepEqual(calm.current, w.current, `${where}: a gust should end back at the base current`);
+        assert.ok(strength(gust.current) <= WEATHER.maxCurrent + 1e-12, `${where}: gust too strong`);
+        assert.ok(calm.atMs <= MISSION.durationMs - LAYOUT.lastShiftBeforeEndMs, `${where}: gust ends too late`);
+        if (prevGustAtMs !== null) {
+          const gap = gust.atMs - prevGustAtMs;
+          assert.ok(gap >= LAYOUT.gustEveryMs[0] - 1 && gap <= LAYOUT.gustEveryMs[1] + 1, `${where}: gusts ${gap} ms apart`);
+        }
+        prevGustAtMs = gust.atMs;
+        prev = calm.atMs;
       }
       for (const x of [w.windStrength, w.stormIntensity]) assert.ok(x >= 0 && x <= 1, `${where}: 0..1 value out of range`);
       assert.ok(w.windDirection >= 0 && w.windDirection < 2 * Math.PI, `${where}: wind direction`);
@@ -325,10 +355,12 @@ describe("step", () => {
     ] as const;
 
     for (const edge of edges) {
-      const base = openWater(started());
+      // Calm water: this is about clamping; the corner-drift test covers currents at the edge.
+      const base = withCurrent(openWater(started()), { x: 0, y: 0 });
       let s: GameState = { ...base, boat: { ...base.boat, heading: edge.heading } };
       s = captain(s, { type: "SET_THROTTLE", throttle: 1 });
-      const steps = Math.round(20_000 / DT); // 20 simulated seconds
+      // Long enough to cross the whole map at full speed (plus spin-up), whatever BOAT is tuned to.
+      const steps = Math.ceil(((1 / BOAT.maxSpeed + BOAT.maxSpeed / BOAT.acceleration + 2) * 1000) / DT);
       for (let i = 0; i < steps; i++) {
         s = step(s, DT).state;
         const { x, y } = s.boat.position;
@@ -787,6 +819,70 @@ describe("hazard collisions", () => {
     assert.deepEqual(r.events.map((e) => e.type), ["HAZARD_HIT", "MISSION_ENDED"]);
     assert.equal(r.state.stats.hazardsHit, 1);
     assert.equal(r.state.hazards.find((h) => h.id === "b")?.lastHitAtMs, null);
+  });
+});
+
+describe("playtest rules", () => {
+  test("a sonar contact shows on the Captain's screen for sonarRevealMs, then only lookout range counts", () => {
+    // Far enough east to be outside the Captain's lookout but inside the ping.
+    const s = hazardsEastOfBoat(at(started(), 1_000), [{ id: "far", d: 0.2, radius: 0.03 }]);
+    const pinged = applyAction(s, { type: "SONAR_PING" }, "sonar").state;
+    const captainSees = (elapsedMs: number) =>
+      getRoleViews(at(pinged, elapsedMs)).captain.visibleHazards.some((h) => h.id === "far");
+
+    assert.equal(getRoleViews(s).captain.visibleHazards.length, 0, "not visible before the ping");
+    assert.equal(captainSees(1_000), true);
+    assert.equal(captainSees(1_000 + CAPTAIN_VIEW.sonarRevealMs - 1), true);
+    assert.equal(captainSees(1_000 + CAPTAIN_VIEW.sonarRevealMs), false, "reveal should expire");
+    // Sonar keeps its contact and the spectator keeps the revealed hazard.
+    const later = at(pinged, 1_000 + CAPTAIN_VIEW.sonarRevealMs);
+    assert.equal(getRoleViews(later).sonar.contacts.length, 1);
+    assert.ok(getSpectatorView(later).hazards.some((h) => h.id === "far"));
+  });
+
+  test("the Gull drifts at currentFactor × the raw current, ignoring the boat's shield", () => {
+    const current = { x: 0.02, y: -0.01 };
+    let s: GameState = { ...withCurrent(started(), current), hazards: [] };
+    s = { ...s, target: { ...s.target, position: { x: 0.5, y: 0.5 } } }; // mid-map, clear of the margin clamp
+    s = applyAction(s, { type: "WEATHER_SHIELD" }, "weather").state;
+    const before = s.target.position;
+    const after = step(s, 1_000).state.target.position;
+    approx(after.x - before.x, current.x * GULL_DRIFT.currentFactor, "gull dx");
+    approx(after.y - before.y, current.y * GULL_DRIFT.currentFactor, "gull dy");
+    assert.equal(getSpectatorView(step(s, 1_000).state).target, null, "drift must not reveal the Gull");
+  });
+
+  test("the Gull stays inside the drift margin", () => {
+    let s: GameState = { ...withCurrent(started(), { x: WEATHER.maxCurrent, y: -WEATHER.maxCurrent }), hazards: [] };
+    s = { ...s, target: { ...s.target, position: { x: 0.85, y: 0.15 } } };
+    for (let i = 0; i < 30; i++) s = step(s, 1_000).state;
+    assert.deepEqual(s.target.position, { x: 1 - GULL_DRIFT.margin, y: GULL_DRIFT.margin });
+  });
+
+  test("the Gull won't drift into a hazard's clearance zone, but can drift away from it", () => {
+    const base = withCurrent(started(), { x: 0.03, y: 0 });
+    const template = base.hazards[0];
+    assert.ok(template);
+    const gull = { x: 0.4, y: 0.4 };
+    // Hazard just east of the Gull: drifting east would cut into its clearance.
+    const rim = 0.03 + GULL_DRIFT.hazardClearance;
+    const hazard = { ...template, id: "rock", radius: 0.03, position: { x: gull.x + rim + 0.0001, y: gull.y } };
+    let s: GameState = { ...base, hazards: [hazard], target: { ...base.target, position: gull } };
+    s = step(s, 1_000).state;
+    assert.deepEqual(s.target.position, gull, "drift toward the hazard is paused");
+
+    s = withCurrent(s, { x: -0.03, y: 0 }, []);
+    s = step(s, 1_000).state;
+    approx(s.target.position.x, gull.x - 0.03 * GULL_DRIFT.currentFactor, "drifting away is allowed");
+  });
+
+  test("radio follows the drifting Gull: its sector reads 1 wherever it has moved to", () => {
+    let s: GameState = { ...withCurrent(openWater(started()), { x: 0, y: -WEATHER.maxCurrent }), hazards: [] };
+    s = { ...s, target: { position: sectorCenter("B3"), rescueRadius: 0 } };
+    for (let i = 0; i < 20; i++) s = step(s, 1_000).state; // 20 s × 0.009/s ≈ 0.18 north: B3 → B2
+    assert.equal(sectorOf(s.target.position), "B2");
+    const r = applyAction(s, { type: "RADIO_SCAN", sector: "B2" }, "radio");
+    assert.equal(r.state.radio.readings[0]?.strength, 1);
   });
 });
 
