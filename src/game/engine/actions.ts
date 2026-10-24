@@ -5,7 +5,7 @@
  * Seq-based dedupe of envelopes happens BEFORE this, in the host session (src/lib/game-client).
  */
 import { RADIO, SONAR, WEATHER } from "../config";
-import { ACTION_PERMISSIONS } from "../types";
+import { ACTION_PERMISSIONS, GULL_CONTACT_ID } from "../types";
 import type {
   ActionRejectReason,
   GameEvent,
@@ -108,10 +108,22 @@ export function applyAction(state: GameState, action: PlayerAction, sender: Send
       const origin = { ...state.boat.position };
       // Any part of the hazard inside the sweep counts, matching the captain's lookout rule.
       const found = state.hazards.filter((h) => distance(h.position, origin) <= SONAR.pingRange + h.radius);
-      const foundIds = new Set(found.map((h) => h.id));
       const detected = found.map(
         (h): SonarContact => ({ hazardId: h.id, position: h.position, radius: h.radius, kind: h.kind, detectedAtMs: elapsedMs }),
       );
+      // Playtest fix 12: the ping also catches the Gull when it's in range, so Sonar can talk the
+      // Driver through the final approach. A snapshot: it goes stale as the Gull drifts. This
+      // contact lives only in the Sonar view (the Captain view only shows contacts of real hazards).
+      if (distance(state.target.position, origin) <= SONAR.pingRange) {
+        detected.push({
+          hazardId: GULL_CONTACT_ID,
+          position: { ...state.target.position },
+          radius: state.target.rescueRadius,
+          kind: "gull",
+          detectedAtMs: elapsedMs,
+        });
+      }
+      const foundIds = new Set(detected.map((c) => c.hazardId));
       return {
         state: {
           ...state,
@@ -124,7 +136,7 @@ export function applyAction(state: GameState, action: PlayerAction, sender: Send
             pingsUsed: state.sonar.pingsUsed + 1,
           },
         },
-        events: [{ type: "SONAR_PINGED", origin, contactsFound: found.length, atMs: elapsedMs }],
+        events: [{ type: "SONAR_PINGED", origin, contactsFound: detected.length, atMs: elapsedMs }],
         rejected: null,
       };
     }

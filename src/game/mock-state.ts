@@ -100,6 +100,8 @@ export const MOCK_GAME_STATE: GameState = {
       { hazardId: "h1", position: { x: 0.32, y: 0.7 }, radius: 0.045, kind: "reef", detectedAtMs: 29_000 },
       { hazardId: "h2", position: { x: 0.62, y: 0.62 }, radius: 0.03, kind: "rock", detectedAtMs: 29_000 },
       { hazardId: "h3", position: { x: 0.45, y: 0.45 }, radius: 0.05, kind: "reef", detectedAtMs: 29_000 },
+      // A ping that also caught the Gull (fix 12). Mock only; the real one needs the Gull in range.
+      { hazardId: "gull", position: { x: 0.6, y: 0.62 }, radius: TARGET.rescueRadius, kind: "gull", detectedAtMs: 29_000 },
     ],
     pingsUsed: 3,
   },

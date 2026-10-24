@@ -66,7 +66,8 @@ export const RADIO = {
 } as const;
 
 export const TARGET = {
-  rescueRadius: 0.08,
+  /** 0.05 now that Sonar can see the Gull up close (fix 12); it was 0.08 while it couldn't. */
+  rescueRadius: 0.05,
 } as const;
 
 export const HAZARDS = {

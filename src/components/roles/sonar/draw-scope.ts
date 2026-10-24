@@ -243,6 +243,10 @@ function drawContacts(
 
     const fade = contactFade(contact, elapsedMs);
     const pulse = 0.7 + 0.3 * Math.sin(nowMs / 280 + contact.position.x * 20);
+    if (contact.kind === "gull") {
+      drawGullContact(ctx, screen, contact.radius * pxPerUnit, fade, pulse);
+      continue;
+    }
     const color = kindColor(contact.kind);
     const radius = Math.max(3.5, contact.radius * pxPerUnit * 0.22);
 
@@ -263,6 +267,37 @@ function drawContacts(
     ctx.fill();
     ctx.restore();
   }
+}
+
+/**
+ * The Gull, when a ping caught it: a yellow rescue ring (the rescue radius) around a white float,
+ * labelled so Sonar can call the final approach. It fades like any contact as the Gull drifts on.
+ */
+function drawGullContact(ctx: CanvasRenderingContext2D, at: Vec2, ringPx: number, fade: number, pulse: number): void {
+  ctx.save();
+  ctx.globalAlpha = fade;
+  ctx.strokeStyle = C.amber;
+  ctx.lineWidth = 2.5;
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath();
+  ctx.arc(at.x, at.y, Math.max(10, ringPx), 0, TAU);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = C.foam;
+  ctx.shadowColor = C.amber;
+  ctx.shadowBlur = 14 * pulse;
+  ctx.beginPath();
+  ctx.ellipse(at.x, at.y, 7, 4.5, 0, 0, TAU);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(at.x + 6, at.y - 4, 3, 0, TAU);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.font = "bold 10px monospace";
+  ctx.textAlign = "center";
+  ctx.fillText("SEAGULL", at.x, at.y - Math.max(10, ringPx) - 5);
+  ctx.textAlign = "start";
+  ctx.restore();
 }
 
 function drawMarkers(

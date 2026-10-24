@@ -3,7 +3,8 @@
  * OWNER: Developer 1 (engine). This is the ONLY place that decides who sees what.
  *
  * Rules (see docs/CONTRACTS.md "Hidden information"):
- * - Nobody but the engine sees `target` until the mission ends (spectator gets it at the end).
+ * - Nobody but the engine sees `target` until the mission ends (spectator gets it at the end),
+ *   except Sonar: a ping in range records a "gull" contact (actions.ts), shown only in the Sonar view.
  * - The captain sees hazards within CAPTAIN.visualRange, plus sonar contacts for a few seconds.
  * - Only the weather specialist gets the forecast and exact current numbers.
  */

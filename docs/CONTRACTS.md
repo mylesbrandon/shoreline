@@ -10,7 +10,7 @@ The source of truth is code: [`src/game/types.ts`](../src/game/types.ts) and [`s
 |---|---|---|
 | Position | normalized map units | Ocean is the square `[0,1] × [0,1]`. `(0,0)` = top-left / north-west. `+x` = east, `+y` = **south** (screen convention). |
 | Heading / angles | radians | `0` = north (up), **clockwise** positive. `π/2` = east. Engine keeps heading in `[0, 2π)`. |
-| Speed, current | map units / second | Full throttle ≈ `BOAT.maxSpeed` = 0.06 (crosses the map in ~16 s). |
+| Speed, current | map units / second | Full throttle ≈ `BOAT.maxSpeed` = 0.035 (crosses the map in ~29 s). |
 | Game time | milliseconds of **mission time** | `MissionState.elapsedMs`. All cooldowns (`pingReadyAtMs`, `shieldReadyAtMs`…) are mission time. |
 | Network timestamps | wall-clock ms (`Date.now()`) | Only in envelopes (`sentAt`). Never used for game logic. |
 | Rudder | `-1..1` | -1 hard port (left), +1 hard starboard (right). |
@@ -101,7 +101,7 @@ One Supabase Realtime channel per room: `stormline:room:<CODE>`. One broadcast e
 
 ### Why a "views bundle" and is it really hidden?
 
-The host sends all four role views in one message (~2–4 KB at 10 Hz — well inside Supabase limits) and each phone renders only its own. This is simple and robust, but a curious player with devtools could read another role's view. **The rescue target is never in any role view** (only in `GameState`, and in `SpectatorView` after the mission ends), so the core secret can't leak. For a party game this trade-off is fine. If we have time, Dev 2 can switch to per-player messages without touching anyone else's code.
+The host sends all four role views in one message (~2–4 KB at 10 Hz — well inside Supabase limits) and each phone renders only its own. This is simple and robust, but a curious player with devtools could read another role's view. **The rescue target is never in the Captain, Weather or Radio views** (only in `GameState`, in `SpectatorView` after the mission ends, and as a `"gull"` contact in the Sonar view when a ping catches it in range), so the core secret only leaks to someone already close to it. For a party game this trade-off is fine. If we have time, Dev 2 can switch to per-player messages without touching anyone else's code.
 
 ### Duplicates and ordering
 
@@ -122,7 +122,7 @@ Implemented in **one place**: `src/game/engine/views.ts` (`getRoleViews`, `getSp
 | Current (coarse arrow) | ✅ | — | ✅ exact | — | ✅ |
 | Current forecast | — | — | ✅ | — | ✅ (judges enjoy it) |
 | Signal readings, distress log | — | — | — | ✅ | — |
-| Rescue target | — | — | — | — | only after mission ends |
+| Rescue target | — | only as a `"gull"` ping contact within range | — | — | only after mission ends |
 
 ## 7. Rendering on clients
 
