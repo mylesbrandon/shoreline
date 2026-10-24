@@ -9,7 +9,9 @@ import { useStore } from "@/lib/game-client/hooks";
 import { createTransport } from "@/lib/realtime/create-transport";
 import { resolveTransportKind } from "@/lib/realtime/env";
 import { saveIdentity } from "@/lib/realtime/player-identity";
+import { ConnectionBanner } from "@/components/shared/ConnectionBanner";
 import { ModeBadge } from "@/components/shared/ModeBadge";
+import { isMissionOver, MissionResults } from "@/components/shared/MissionResults";
 import { MissionClock } from "@/components/shared/MissionClock";
 import { RoleStation } from "@/components/shared/RoleStation";
 import { ROLE_INFO } from "@/components/shared/roles";
@@ -94,16 +96,18 @@ function JoinedView({ session }: { session: PlayerSession }) {
     };
   }, [session]);
 
-  if (snap.error) return <p className="rounded-xl border border-hazard/50 bg-hazard/10 p-4 text-hazard">{snap.error}</p>;
-
+  const banner = <ConnectionBanner status={snap.status} error={snap.error} />;
   const role = snap.me?.role ?? null;
   const status = snap.room?.status ?? "lobby";
 
   if (!role) {
     return (
-      <div className="instrument grid gap-2 rounded-2xl p-5">
-        <ModeBadge mode="live" />
-        <p className="text-lg">{snap.room ? "All four stations are crewed — you're watching." : `Contacting host… (${snap.status})`}</p>
+      <div className="grid gap-3">
+        {banner}
+        <div className="instrument grid gap-2 rounded-2xl p-5">
+          <ModeBadge mode="live" />
+          <p className="text-lg">{snap.room ? "All four stations are crewed — you're watching." : `Contacting host… (${snap.status})`}</p>
+        </div>
       </div>
     );
   }
@@ -113,25 +117,40 @@ function JoinedView({ session }: { session: PlayerSession }) {
 
   if (status === "lobby" || !snap.view) {
     return (
-      <div className="instrument grid justify-items-center gap-3 rounded-2xl p-8 text-center">
-        <Icon className={`size-14 ${info.accent}`} />
-        <p className="font-mono text-xs uppercase tracking-[0.3em] text-mist">Your station</p>
-        <h1 className={`text-4xl font-bold ${info.accent}`}>{info.label}</h1>
-        <p className="text-mist">{info.brief}</p>
-        <p className="font-mono text-xs text-hull">Waiting for the host to start…</p>
+      <div className="grid gap-3">
+        {banner}
+        <div className="instrument grid justify-items-center gap-3 rounded-2xl p-8 text-center">
+          <Icon className={`size-14 ${info.accent}`} />
+          <p className="font-mono text-xs uppercase tracking-[0.3em] text-mist">Your station</p>
+          <h1 className={`text-4xl font-bold ${info.accent}`}>{info.label}</h1>
+          <p className="text-mist">{info.brief}</p>
+          <p className="font-mono text-xs text-hull">Waiting for the host to start…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isMissionOver(snap.view.mission)) {
+    return (
+      <div className="grid gap-3">
+        {banner}
+        <MissionResults
+          mission={snap.view.mission}
+          footer={<p className="font-mono text-xs text-mist">Stay on this screen — the host can start the next mission.</p>}
+        />
       </div>
     );
   }
 
   return (
     <div className="grid gap-3">
+      {banner}
       <div className="flex items-center justify-between">
         <h1 className={`flex items-center gap-2 text-2xl font-semibold ${info.accent}`}>
           <Icon className="size-6" /> {info.label}
         </h1>
         <MissionClock mission={snap.view.mission} className="text-xl" />
       </div>
-      {/* TODO(dev2/dev3): results overlay when view.mission.phase is victory/failure */}
       <RoleStation view={snap.view} onAction={(a) => session.sendAction(a)} />
     </div>
   );

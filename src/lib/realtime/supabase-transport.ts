@@ -56,11 +56,14 @@ export class SupabaseRoomTransport implements RoomTransport {
   private channel: RealtimeChannel | null = null;
   private joined = false;
   private closing = false;
+  /** In-flight disconnect(); connect() waits for it (see connect()). */
+  private teardown: Promise<void> | null = null;
+  /** Rejects a connect() that hasn't joined yet when disconnect() is called first. */
+  private abortPendingJoin: ((e: Error) => void) | null = null;
   private messageHandlers = new Set<(m: NetworkMessage) => void>();
   private presenceHandlers = new Set<(members: PresenceMeta[]) => void>();
   private statusHandlers = new Set<(s: TransportStatus, e?: string) => void>();
   private readonly client: SupabaseClient;
-  private readonly ownsClient: boolean;
 
   /** Pass a client only in tests; by default each transport owns its own (see supabase-client.ts). */
   constructor(
@@ -68,15 +71,23 @@ export class SupabaseRoomTransport implements RoomTransport {
     client?: SupabaseClient,
   ) {
     this.client = client ?? createSupabaseClient();
-    this.ownsClient = !client;
   }
 
-  connect(me: PresenceMeta): Promise<void> {
-    if (this.channel) return Promise.resolve();
+  async connect(me: PresenceMeta): Promise<void> {
+    // React StrictMode runs effects start → stop → start on the SAME session in dev. supabase-js
+    // returns the existing channel object while an old one with this topic is still closing, and
+    // re-subscribing that throws. So finish any pending teardown first, and clear stragglers.
+    if (this.teardown) await this.teardown;
+    if (this.channel) return;
+    const topic = channelName(this.roomCode);
+    for (const stale of this.client.getChannels().filter((c) => c.topic === `realtime:${topic}`)) {
+      await this.client.removeChannel(stale);
+    }
+    if (this.channel) return; // another connect() won the race while we awaited
     this.closing = false;
     this.emitStatus("connecting");
 
-    const channel = this.client.channel(channelName(this.roomCode), {
+    const channel = this.client.channel(topic, {
       config: { broadcast: { self: false, ack: false }, presence: { key: me.playerId } },
     });
     this.channel = channel;
@@ -94,6 +105,11 @@ export class SupabaseRoomTransport implements RoomTransport {
 
     return new Promise<void>((resolve, reject) => {
       let settled = false;
+      this.abortPendingJoin = (e) => {
+        if (settled) return;
+        settled = true;
+        reject(e);
+      };
       channel.subscribe(async (status, err) => {
         if (this.channel !== channel) return; // stale callback after disconnect()
         switch (status) {
@@ -101,6 +117,7 @@ export class SupabaseRoomTransport implements RoomTransport {
             this.joined = true;
             // Re-track on every (re)subscribe so presence survives automatic rejoins.
             const result = await channel.track(me);
+            if (this.channel !== channel) return; // disconnected while tracking
             if (result !== "ok") console.warn(`[stormline] presence track returned "${result}"`);
             this.emitStatus("connected");
             if (!settled) {
@@ -140,22 +157,29 @@ export class SupabaseRoomTransport implements RoomTransport {
 
   async disconnect(): Promise<void> {
     const channel = this.channel;
-    if (!channel) return;
+    if (!channel) return this.teardown ?? undefined;
     this.closing = true;
     this.channel = null;
     this.joined = false;
-    try {
-      await channel.untrack();
-    } catch {
-      // Socket may already be gone (tab closing, offline) — the server drops presence anyway.
-    }
-    try {
-      await this.client.removeChannel(channel);
-      if (this.ownsClient) this.client.realtime.disconnect();
-    } catch {
-      // Best effort; nothing useful to do if teardown fails.
-    }
-    this.emitStatus("disconnected");
+    this.abortPendingJoin?.(new Error("Disconnected before the room channel finished joining."));
+    this.abortPendingJoin = null;
+    const teardown = (async () => {
+      try {
+        await channel.untrack();
+      } catch {
+        // Socket may already be gone (tab closing, offline) — the server drops presence anyway.
+      }
+      try {
+        // Once its last channel is removed, supabase-js closes the WebSocket by itself.
+        await this.client.removeChannel(channel);
+      } catch {
+        // Best effort; nothing useful to do if teardown fails.
+      }
+      this.emitStatus("disconnected");
+    })();
+    this.teardown = teardown;
+    await teardown;
+    if (this.teardown === teardown) this.teardown = null;
   }
 
   send(message: NetworkMessage): void {
