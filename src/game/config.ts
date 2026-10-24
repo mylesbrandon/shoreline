@@ -22,12 +22,12 @@ export const MISSION = {
 } as const;
 
 export const BOAT = {
-  /** Map units / second at full throttle (crosses the map in ~16 s). */
-  maxSpeed: 0.06,
+  /** Map units / second at full throttle (crosses the map in ~29 s). */
+  maxSpeed: 0.035,
   /** Map units / second^2 — how fast speed approaches throttle * maxSpeed. */
-  acceleration: 0.04,
+  acceleration: 0.025,
   /** Radians / second at full rudder and full speed. */
-  maxTurnRate: 1.6,
+  maxTurnRate: 1.2,
   startHull: 100,
   /** Hull damage per hazard collision. */
   collisionDamage: 25,
@@ -37,11 +37,11 @@ export const BOAT = {
 
 export const CAPTAIN = {
   /** Captain sees any hazard within this radius of the boat ("lookout range"). */
-  visualRange: 0.12,
+  visualRange: 0.07,
 } as const;
 
 export const SONAR = {
-  pingCooldownMs: 4_000,
+  pingCooldownMs: 3_000,
   /** Hazards within this distance of the boat at ping time become contacts. */
   pingRange: 0.3,
   /** Visual sweep duration for the UI. */
@@ -49,28 +49,28 @@ export const SONAR = {
 } as const;
 
 export const WEATHER = {
-  shieldDurationMs: 6_000,
-  shieldCooldownMs: 20_000,
+  shieldDurationMs: 3_000,
+  shieldCooldownMs: 10_000,
   /** While shielded, current is multiplied by this factor. */
   shieldCurrentFactor: 0.25,
   /** Max current strength, map units / second. */
   maxCurrent: 0.03,
   /** How far ahead the weather specialist can see in the forecast. */
-  forecastHorizonMs: 15_000,
+  forecastHorizonMs: 8_000,
 } as const;
 
 export const RADIO = {
-  scanCooldownMs: 2_500,
+  scanCooldownMs: 3_500,
   /** Sector grid is GRID x GRID (see src/game/sectors.ts). */
   grid: 4,
 } as const;
 
 export const TARGET = {
-  rescueRadius: 0.045,
+  rescueRadius: 0.08,
 } as const;
 
 export const HAZARDS = {
-  count: 14,
+  count: 22,
   minRadius: 0.025,
   maxRadius: 0.05,
 } as const;

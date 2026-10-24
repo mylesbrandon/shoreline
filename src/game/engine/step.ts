@@ -87,12 +87,14 @@ export function step(state: GameState, dtMs: number): StepResult {
   const mission = { ...state.mission, elapsedMs: Math.min(elapsedMs, state.mission.durationMs) };
   const hit = applyCollisions(state.hazards, boat, mission.elapsedMs, events);
   const weather = applyForecast(state.weather, mission.elapsedMs, events);
+  const target = { ...state.target, position: driftGull(state.target.position, state.weather.current, state.hazards, dtMs / 1000) };
   const next: GameState = {
     ...state,
     tick: state.tick + 1,
     boat: hit.boat,
     hazards: hit.hazards,
     weather,
+    target,
     mission,
     stats: hit.count > 0 ? { ...state.stats, hazardsHit: state.stats.hazardsHit + hit.count } : state.stats,
   };
@@ -105,7 +107,7 @@ export function step(state: GameState, dtMs: number): StepResult {
       events: [...events, ended(mission, "failure", "hull_destroyed")],
     };
   }
-  const rescued = distance(boat.position, state.target.position) <= state.target.rescueRadius;
+  const rescued = distance(boat.position, target.position) <= target.rescueRadius;
   if (rescued) return { state: endMission(next, "victory", null), events: [...events, ended(mission, "victory", null)] };
   if (elapsedMs >= state.mission.durationMs) {
     return { state: endMission(next, "failure", "timeout"), events: [...events, ended(mission, "failure", "timeout")] };
@@ -114,6 +116,35 @@ export function step(state: GameState, dtMs: number): StepResult {
 }
 
 const distance = (a: Vec2, b: Vec2) => Math.hypot(a.x - b.x, a.y - b.y);
+
+/** Engine-owned Gull drift tuning (not in config.ts: nothing outside the engine depends on it). */
+export const GULL_DRIFT = {
+  /** The Gull moves at this fraction of the raw current (the shield only protects the boat). */
+  currentFactor: 0.3,
+  /** Kept inside [margin, 1 - margin] on both axes. */
+  margin: 0.08,
+  /** The Gull never drifts closer than this to a hazard's rim, so it can't end up unreachable. */
+  hazardClearance: 0.05,
+} as const;
+
+/**
+ * The Gull drifts with the current, so Radio's fix goes stale and they have to keep tracking.
+ * A drift step that would take it within GULL_DRIFT.hazardClearance of a hazard (and closer than
+ * it already is) is skipped, which pauses it there until the current turns.
+ */
+function driftGull(position: Vec2, current: Vec2, hazards: Hazard[], dt: number): Vec2 {
+  const clampAxis = (v: number) => Math.min(1 - GULL_DRIFT.margin, Math.max(GULL_DRIFT.margin, v));
+  const next = {
+    x: clampAxis(position.x + current.x * GULL_DRIFT.currentFactor * dt),
+    y: clampAxis(position.y + current.y * GULL_DRIFT.currentFactor * dt),
+  };
+  const crowds = hazards.some(
+    (h) =>
+      distance(next, h.position) < h.radius + GULL_DRIFT.hazardClearance &&
+      distance(next, h.position) < distance(position, h.position),
+  );
+  return crowds ? position : next;
+}
 
 /**
  * Damage the hull once for every hazard the boat is inside, then ignore that hazard for
