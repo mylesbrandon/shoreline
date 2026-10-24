@@ -4,6 +4,7 @@
  * Pure functions: never mutate `state`, never read the clock, never touch the network.
  * Seq-based dedupe of envelopes happens BEFORE this, in the host session (src/lib/game-client).
  */
+import { WEATHER } from "../config";
 import { ACTION_PERMISSIONS } from "../types";
 import type { ActionRejectReason, GameEvent, GameState, PlayerAction, Role } from "../types";
 import { isSectorId } from "../sectors";
@@ -95,9 +96,25 @@ export function applyAction(state: GameState, action: PlayerAction, sender: Send
     case "MARK_TARGET":
       return { state, events: [], rejected: null };
 
-    // TODO(dev1, later): cooldown check → set shieldActiveUntilMs / shieldReadyAtMs, emit SHIELD_ACTIVATED.
-    case "WEATHER_SHIELD":
-      return { state, events: [], rejected: null };
+    // step() dampens the current while elapsedMs < shieldActiveUntilMs.
+    case "WEATHER_SHIELD": {
+      const { elapsedMs } = state.mission;
+      if (elapsedMs < state.weather.shieldReadyAtMs) return { state, events: [], rejected: "cooldown" };
+      const untilMs = elapsedMs + WEATHER.shieldDurationMs;
+      return {
+        state: {
+          ...state,
+          weather: {
+            ...state.weather,
+            shieldActiveUntilMs: untilMs,
+            shieldReadyAtMs: elapsedMs + WEATHER.shieldCooldownMs,
+          },
+          stats: { ...state.stats, shieldsUsed: state.stats.shieldsUsed + 1 },
+        },
+        events: [{ type: "SHIELD_ACTIVATED", untilMs, atMs: elapsedMs }],
+        rejected: null,
+      };
+    }
 
     // TODO(dev1, later): cooldown check → strength from distance(target, sectorCenter) → append
     // SignalReading, emit RADIO_SCANNED. Never put the target position itself in the reading.

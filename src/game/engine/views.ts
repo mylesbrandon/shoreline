@@ -9,6 +9,7 @@
  */
 import { CAPTAIN, RADIO, SONAR } from "../config";
 import type { CaptainView, GameState, RadioView, Role, RoleViews, SonarView, SpectatorView, WeatherView } from "../types";
+import { isShieldActive } from "./step";
 
 const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
 
@@ -23,8 +24,7 @@ function base(state: GameState) {
 }
 
 export function getCaptainView(state: GameState): CaptainView {
-  const shieldActive =
-    state.weather.shieldActiveUntilMs !== null && state.mission.elapsedMs < state.weather.shieldActiveUntilMs;
+  const shieldActive = isShieldActive(state.weather, state.mission.elapsedMs);
   return {
     ...base(state),
     role: "captain",
