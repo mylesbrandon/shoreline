@@ -9,7 +9,7 @@
  */
 import { CAPTAIN, RADIO, SONAR, WEATHER } from "../config";
 import type { CaptainView, GameState, RadioView, Role, RoleViews, SonarView, SpectatorView, WeatherView } from "../types";
-import { isShieldActive } from "./step";
+import { gullDriftVelocity, isShieldActive } from "./step";
 
 const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
 
@@ -78,9 +78,31 @@ export function getRadioView(state: GameState): RadioView {
     readings: state.radio.readings,
     lastScanAtMs: state.radio.lastScanAtMs,
     scanReadyAtMs: state.radio.lastScanAtMs === null ? 0 : state.radio.lastScanAtMs + RADIO.scanCooldownMs,
-    // TODO(dev1, later): seeded flavor lines that hint at the target (never coordinates).
-    distressLog: ["…mayday, mayday… vessel adrift…"],
+    distressLog: towerRadioLines(state),
   };
+}
+
+const COMPASS = ["north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west"] as const;
+
+/** 8-point compass name for a direction vector (+y is south, like the map). */
+function compass(v: { x: number; y: number }): string {
+  const angle = Math.atan2(v.x, -v.y); // 0 = north, clockwise, like heading
+  const index = Math.round(angle / (Math.PI / 4));
+  return COMPASS[((index % 8) + 8) % 8] ?? "north";
+}
+
+/**
+ * Tower Radio chatter: beachgoers calling in sightings, newest last. Built only from things that
+ * aren't secret: the drift direction comes from the current (Weather sees it exactly) plus the
+ * rip, and the urgency lines from the mission clock. Never coordinates or sectors: finding the
+ * Gull is still Radio's job.
+ */
+function towerRadioLines(state: GameState): string[] {
+  const lines = ["Tower 4, a tourist on a giant seagull float just drifted past the buoys!"];
+  lines.push(`Beachgoers say the seagull is drifting ${compass(gullDriftVelocity(state.weather.current))}.`);
+  if (state.mission.elapsedMs >= 30_000) lines.push("Pier report: they're getting tired out there.");
+  if (state.mission.elapsedMs >= 60_000) lines.push("The rip is pulling them out fast. Hurry!");
+  return lines;
 }
 
 export function getRoleViews(state: GameState): RoleViews {

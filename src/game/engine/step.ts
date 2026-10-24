@@ -125,19 +125,24 @@ export const GULL_DRIFT = {
   margin: 0.08,
   /** The Gull never drifts closer than this to a hazard's rim, so it can't end up unreachable. */
   hazardClearance: 0.05,
+  /** The rip: a steady pull out to sea (north, -y), on top of the current. Map units / second. */
+  seawardSpeed: 0.003,
 } as const;
 
+/** How fast the Gull is drifting right now: a share of the current plus the rip's seaward pull. */
+export function gullDriftVelocity(current: Vec2): Vec2 {
+  return { x: current.x * GULL_DRIFT.currentFactor, y: current.y * GULL_DRIFT.currentFactor - GULL_DRIFT.seawardSpeed };
+}
+
 /**
- * The Gull drifts with the current, so Radio's fix goes stale and they have to keep tracking.
+ * The Gull drifts with the current and the rip, so Radio's fix goes stale and they have to keep tracking.
  * A drift step that would take it within GULL_DRIFT.hazardClearance of a hazard (and closer than
  * it already is) is skipped, which pauses it there until the current turns.
  */
 function driftGull(position: Vec2, current: Vec2, hazards: Hazard[], dt: number): Vec2 {
   const clampAxis = (v: number) => Math.min(1 - GULL_DRIFT.margin, Math.max(GULL_DRIFT.margin, v));
-  const next = {
-    x: clampAxis(position.x + current.x * GULL_DRIFT.currentFactor * dt),
-    y: clampAxis(position.y + current.y * GULL_DRIFT.currentFactor * dt),
-  };
+  const velocity = gullDriftVelocity(current);
+  const next = { x: clampAxis(position.x + velocity.x * dt), y: clampAxis(position.y + velocity.y * dt) };
   const crowds = hazards.some(
     (h) =>
       distance(next, h.position) < h.radius + GULL_DRIFT.hazardClearance &&
