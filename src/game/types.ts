@@ -88,6 +88,8 @@ export interface Hazard {
   radius: number;
   /** True once detected by a sonar ping (or seen by the captain up close). */
   revealed: boolean;
+  /** Mission time (ms) of this hazard's last hull hit, or null if never hit. Drives BOAT.collisionCooldownMs. */
+  lastHitAtMs: number | null;
 }
 
 export interface CurrentForecastEntry {
