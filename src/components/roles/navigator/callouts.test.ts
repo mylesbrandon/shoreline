@@ -150,7 +150,7 @@ describe("navigatorCallout priority", () => {
     const radio = radioAt({ boat, readings: [] });
     const call = navigatorCallout(sonar, radio, now);
     assert.equal(call.kind, "prompt");
-    assert.equal(call.text, "SWEEP OR SCAN TO FIND THEM");
+    assert.equal(call.text, "SWEEP TO SCAN FOR OBSTACLES");
   });
 
   test("weak radio does not produce a signal callout", () => {

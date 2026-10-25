@@ -9,6 +9,7 @@ import type { PointerEvent } from "react";
 import type { SonarView, Vec2 } from "@/game/types";
 import { drawSonarScope, type ScopeDrawExtras, type ScopeRipple } from "./draw-scope";
 import { scopeToWorld, tapInWell } from "./scope-coords";
+import { ScopeLegend } from "./ScopeLegend";
 
 export interface SonarScopeProps {
   view: SonarView;
@@ -88,12 +89,15 @@ export function SonarScope({
   };
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="block aspect-square w-full touch-none rounded-full"
-      role="img"
-      aria-label="Drone radar. Tap to mark an obstacle for your Driver."
-      onPointerDown={handlePointerDown}
-    />
+    <>
+      <canvas
+        ref={canvasRef}
+        className="block aspect-square w-full touch-none rounded-full"
+        role="img"
+        aria-label="Drone radar. Tap to mark an obstacle for your Driver."
+        onPointerDown={handlePointerDown}
+      />
+      <ScopeLegend />
+    </>
   );
 }

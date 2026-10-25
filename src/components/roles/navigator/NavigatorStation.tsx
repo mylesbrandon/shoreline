@@ -65,7 +65,7 @@ export function NavigatorStation({ view, scoreboard, onAction }: NavigatorStatio
     rivalFlash !== null
       ? { kind: "prompt" as const, text: rivalFlash }
       : suppressPerson && baseCallout.kind === "survivor"
-        ? { kind: "prompt" as const, text: "SWEEP OR SCAN TO FIND THEM" }
+        ? { kind: "prompt" as const, text: "SWEEP TO SCAN FOR OBSTACLES" }
         : baseCallout;
   const personFound = callout.kind === "survivor";
   const boatSector = sectorOf(view.radio.boat.position);

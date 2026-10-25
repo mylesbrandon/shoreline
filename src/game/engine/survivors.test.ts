@@ -131,3 +131,24 @@ describe("survivors: several boats", () => {
     for (let i = 1; i <= 5; i++) assert.deepEqual(survivorSpawn(9, i, hazards, START), survivorSpawn(9, i, hazards, [START]));
   });
 });
+
+describe("survivors: preferences", () => {
+  test("a preference picks a qualifying candidate when one exists", () => {
+    const hazards = hazardsOf(5);
+    const wantsEast = (p: Vec2) => p.x > 0.7;
+    for (let i = 1; i <= 5; i++) {
+      const p = survivorSpawn(5, i, hazards, START, 0.06, () => true, [wantsEast]);
+      assert.ok(p.x > 0.7, `#${i} at ${p.x}`);
+    }
+  });
+
+  test("preferences are tried in order, and ignored when none qualifies", () => {
+    const hazards = hazardsOf(5);
+    const never = () => false;
+    for (let i = 1; i <= 5; i++) {
+      assert.deepEqual(survivorSpawn(5, i, hazards, START, 0.06, () => true, [never]), survivorSpawn(5, i, hazards, START, 0.06));
+      const first = survivorSpawn(5, i, hazards, START, 0.06, () => true, [(p) => p.y < 0.4, (p) => p.x > 0.7]);
+      assert.ok(first.y < 0.4, "the first preference wins when it can");
+    }
+  });
+});

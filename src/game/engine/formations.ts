@@ -13,6 +13,7 @@
  */
 import { MAP, TARGET } from "../config";
 import type { Hazard, HazardKind, Vec2 } from "../types";
+import { hazardClass } from "../versus/contract";
 import { createRng, randomBetween, type Rng } from "./rng";
 
 /** Engine-owned tuning (not in config.ts: nothing outside the engine depends on it). */
@@ -142,6 +143,26 @@ export function reachability(hazards: readonly Hazard[], from: readonly Vec2[]):
     }
   }
   return { reaches: (p) => seen[cellOf(p.y) * n + cellOf(p.x)] === 1 };
+}
+
+/** True when the straight line a→b passes through any LAND hazard (sandbar or rock). */
+export function landBetween(a: Vec2, b: Vec2, hazards: readonly Hazard[]): boolean {
+  const land = hazards.filter((h) => hazardClass(h.kind) === "land");
+  const steps = Math.max(1, Math.ceil(distance(a, b) / FORMATIONS.gridCell));
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const p = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+    if (land.some((h) => distance(p, h.position) < h.radius)) return true;
+  }
+  return false;
+}
+
+/**
+ * True when `p` sits within `within` of a reef FORMATION's rim (ids "f…"): the person is tucked in
+ * beside the reef, so the last approach has to be careful.
+ */
+export function besideFormation(p: Vec2, hazards: readonly Hazard[], within: number): boolean {
+  return hazards.some((h) => h.id.startsWith("f") && distance(p, h.position) - h.radius <= within);
 }
 
 /** True when every dock can drive to within the rescue zone of `target` without touching a hazard. */
