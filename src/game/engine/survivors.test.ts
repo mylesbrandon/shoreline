@@ -113,3 +113,21 @@ describe("survivors: rescue radius", () => {
     }
   });
 });
+
+describe("survivors: several boats", () => {
+  test("keeps away from every boat (versus passes both)", () => {
+    for (let seed = 1; seed <= 50; seed++) {
+      const hazards = hazardsOf(seed);
+      const boats: Vec2[] = [START, { x: 0.3, y: 0.3 }];
+      for (let i = 1; i <= 8; i++) {
+        const p = survivorSpawn(seed, i, hazards, boats, 0.06);
+        for (const b of boats) assert.ok(distance(p, b) >= SURVIVORS.minSpawnFromAnyBoat, `seed ${seed} #${i}`);
+      }
+    }
+  });
+
+  test("one boat and a one-boat list give the same survivor", () => {
+    const hazards = hazardsOf(9);
+    for (let i = 1; i <= 5; i++) assert.deepEqual(survivorSpawn(9, i, hazards, START), survivorSpawn(9, i, hazards, [START]));
+  });
+});
