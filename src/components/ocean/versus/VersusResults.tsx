@@ -1,30 +1,26 @@
-/**
- * End-of-match results (winner, both scores) for phones and the host screen. OWNER: Developer 3.
- *
- * BASELINE PLACEHOLDER (handoff versus-1): text only. TODO(dev3): the dramatic results screen.
- */
 import type { MatchResult, TeamId } from "@/game/versus/contract";
+import { TEAMS } from "@/game/versus/contract";
+import { TEAM_INFO } from "@/components/shared/teams";
 
-export interface VersusResultsProps {
-  result: MatchResult;
-  /** The viewer's team on a phone ("You won!" / "You lost"); omit on the spectator screen. */
-  team?: TeamId;
-  footer?: React.ReactNode;
-}
+export interface VersusResultsProps { result: MatchResult; team?: TeamId; footer?: React.ReactNode }
 
 export function VersusResults({ result, team, footer }: VersusResultsProps) {
-  const headline =
-    result.winner === null ? "It's a tie!" : team ? (result.winner === team ? "You won!" : "You lost") : `${result.winner.toUpperCase()} wins!`;
-  return (
-    <section className="instrument grid justify-items-center gap-3 rounded-2xl p-6 text-center">
-      <p className="font-mono text-xs uppercase tracking-[0.3em] text-mist">Match over</p>
-      <h2 className="text-4xl font-bold text-foam">{headline}</h2>
-      <p className="font-mono text-2xl">
-        <span className="text-team-blue">BLUE {result.scores.blue.rescues}</span>
-        {" · "}
-        <span className="text-team-red">{result.scores.red.rescues} RED</span>
-      </p>
-      {footer}
-    </section>
-  );
+  const winner = result.winner;
+  const headline = winner === null ? "TIE!" : team ? (winner === team ? "YOU WON!" : "YOU LOST") : TEAM_INFO[winner].label.toUpperCase() + " WINS";
+  const tiebreak = winner !== null && result.scores.blue.rescues === result.scores.red.rescues;
+  return <section className="vs-results" role="status" aria-live="polite">
+    <p className="vs-eyebrow">Red Flag Day / final results</p>
+    <p className="vs-results-kicker">Rescue Showdown</p>
+    <h2 style={{ color: winner ? TEAM_INFO[winner].hex : "var(--color-foam)" }}>{headline}</h2>
+    <p className="vs-results-subtitle">{winner === null ? "Same ocean. Same finish. What a race." : "Every rescue made the difference."}</p>
+    <div className="vs-result-scores">
+      {TEAMS.map((id) => <div key={id} className={`vs-result-team ${winner === id ? "vs-result-winner" : ""}`} style={{ borderColor: TEAM_INFO[id].hex }}>
+        <p style={{ color: TEAM_INFO[id].hex }}>{TEAM_INFO[id].label}{team === id ? " · YOU" : ""}</p>
+        <strong style={{ color: TEAM_INFO[id].hex }}>{result.scores[id].rescues}</strong>
+        <span>rescues</span><small>{result.scores[id].wipeouts} wipeout{result.scores[id].wipeouts === 1 ? "" : "s"}</small>
+      </div>)}
+    </div>
+    {tiebreak && <p className="vs-tiebreak">{TEAM_INFO[winner].label} got there first<span>Equal rescues · earliest final rescue wins</span></p>}
+    {footer && <div className="vs-results-footer">{footer}</div>}
+  </section>;
 }

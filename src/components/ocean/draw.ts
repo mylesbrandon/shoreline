@@ -11,6 +11,8 @@ import { PALETTE } from "./palette";
 
 export interface OceanScene {
   boat: BoatState;
+  /** Optional versus deck colour; absent preserves the original co-op drawing. */
+  boatTint?: string;
   hazards: Hazard[];
   markers: Marker[];
   target?: RescueTarget | null;
@@ -312,7 +314,7 @@ export function drawTarget(ctx: CanvasRenderingContext2D, cam: Camera, target: R
 }
 
 /** Rescue jet ski: red and white, pointing along its heading, with a white wake. */
-export function drawBoat(ctx: CanvasRenderingContext2D, size: number, cam: Camera, boat: BoatState): void {
+export function drawBoat(ctx: CanvasRenderingContext2D, size: number, cam: Camera, boat: BoatState, boatTint?: string): void {
   const { x, y } = toScreen(cam, boat.position);
   const s = Math.max(10, size * 0.028);
   ctx.save();
@@ -344,8 +346,8 @@ export function drawBoat(ctx: CanvasRenderingContext2D, size: number, cam: Camer
   ctx.fill();
   ctx.stroke();
   ctx.shadowBlur = 0;
-  // Red deck stripe, seat and handlebars.
-  ctx.fillStyle = PALETTE.hazard;
+  // Default red deck is unchanged for co-op.
+  ctx.fillStyle = boatTint ?? PALETTE.hazard;
   ctx.beginPath();
   ctx.moveTo(0, -s * 1.0);
   ctx.quadraticCurveTo(s * 0.3, -s * 0.4, s * 0.25, s * 0.2);
@@ -466,7 +468,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, size: number, scene: Oc
   for (const m of scene.markers) drawMarker(ctx, cam, m);
   if (scene.target) drawTarget(ctx, cam, scene.target, timeMs);
   if (scene.window) drawGlare(ctx, size, cam, scene.window.lookout);
-  drawBoat(ctx, size, cam, scene.boat);
+  drawBoat(ctx, size, cam, scene.boat, scene.boatTint);
   if (scene.window) {
     for (const m of scene.markers) if (m.kind === "target_guess") drawEdgeArrow(ctx, size, cam, m);
     drawCompass(ctx);
