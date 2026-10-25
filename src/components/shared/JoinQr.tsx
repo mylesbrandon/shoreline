@@ -17,11 +17,20 @@ function isLoopback(origin: string): boolean {
   }
 }
 
-export function JoinQr({ roomCode, lanOrigin = null }: { roomCode: string; lanOrigin?: string | null }) {
+/** `path` picks the join route: "room" for co-op (default, unchanged) or "versus/room" for 2v2. */
+export function JoinQr({
+  roomCode,
+  lanOrigin = null,
+  path = "room",
+}: {
+  roomCode: string;
+  lanOrigin?: string | null;
+  path?: string;
+}) {
   const pageOrigin = useOrigin();
   const loopback = pageOrigin !== "" && isLoopback(pageOrigin);
   const origin = loopback && lanOrigin ? lanOrigin : pageOrigin;
-  const url = `${origin}/room/${roomCode}`;
+  const url = `${origin}/${path}/${roomCode}`;
   return (
     <div className="flex flex-col items-center gap-3">
       <div className="rounded-xl bg-foam p-3">

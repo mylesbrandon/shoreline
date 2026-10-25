@@ -11,6 +11,14 @@ describe("messages", () => {
     assert.equal(m.sentAt, 123);
   });
 
+  test("the three versus message types are accepted", () => {
+    // Shape only — the guard is structural; the host is still the authority on contents.
+    const base = { v: 1 as const, msgId: "m1", from: "host", sentAt: 1 };
+    for (const type of ["versus_room", "versus_views", "versus_events"] as const) {
+      assert.equal(isNetworkMessage({ ...base, type }), true, `${type} should be accepted`);
+    }
+  });
+
   test("garbage is rejected", () => {
     assert.equal(isNetworkMessage(null), false);
     assert.equal(isNetworkMessage({ type: "test" }), false);
