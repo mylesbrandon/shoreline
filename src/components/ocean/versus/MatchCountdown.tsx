@@ -7,6 +7,6 @@ export function MatchCountdown({ scoreboard, phone = false }: { scoreboard: Matc
   return <div className={`vs-countdown ${phone ? "vs-countdown-phone" : ""} ${label === "GO!" ? "vs-go" : ""}`}
     role="status" aria-live="polite" aria-label={label === "GO!" ? "Go!" : "Starting in " + label}>
     <div><p className="vs-eyebrow">{label === "GO!" ? "Save the most lives" : "Two crews. One ocean."}</p>
-      <strong key={label}>{label}</strong><p className="vs-eyebrow">{label === "GO!" ? "Rescue showdown" : "Get ready"}</p></div>
+      <strong key={label} className={label.length > 3 ? "vs-count-word" : undefined}>{label}</strong><p className="vs-eyebrow">{label === "GO!" ? "Rescue showdown" : "Get ready"}</p></div>
   </div>;
 }

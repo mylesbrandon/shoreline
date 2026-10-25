@@ -224,3 +224,33 @@ export function withFormations(seed: number, base: readonly Hazard[], docks: rea
   }
   return field;
 }
+
+/** Versus jellyfish share (audit r9): the only hull damage, so there must be enough to matter. */
+export const JELLIES = {
+  /** Each map ends up with between min and max jellyfish (seeded). */
+  min: 6,
+  max: 8,
+  /** Prefer scattered hazards in this band of open water (between the docks and the upper half). */
+  bandY: [0.2, 0.85],
+} as const;
+
+/**
+ * Turn scattered land hazards (never formation reefs) into jellyfish until the map has
+ * JELLIES.min–max of them. Same circle, same place: collision geometry, the reachability guard,
+ * dock and survivor clearance are all unchanged. Seeded, so both crews get the same jellies.
+ */
+export function withJellies(seed: number, hazards: readonly Hazard[]): Hazard[] {
+  const rng = createRng((seed ^ 0x6e11f15) >>> 0);
+  const want = JELLIES.min + Math.floor(rng() * (JELLIES.max - JELLIES.min + 1));
+  const have = hazards.filter((h) => h.kind === "debris").length;
+  if (have >= want) return [...hazards];
+  const inBand = (h: Hazard) => h.position.y >= JELLIES.bandY[0] && h.position.y <= JELLIES.bandY[1];
+  // A seeded shuffle, then band hazards first: deterministic and spread across the map.
+  const order = hazards
+    .filter((h) => !h.id.startsWith("f") && h.kind !== "debris")
+    .map((h) => ({ h, key: rng() }))
+    .sort((a, b) => Number(inBand(b.h)) - Number(inBand(a.h)) || a.key - b.key)
+    .map(({ h }) => h.id);
+  const convert = new Set(order.slice(0, want - have));
+  return hazards.map((h) => (convert.has(h.id) ? { ...h, kind: "debris" as const } : h));
+}

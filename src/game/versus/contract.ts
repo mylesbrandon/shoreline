@@ -99,8 +99,11 @@ export function versusRoleMay(role: VersusRole, type: PlayerActionType): boolean
 export const VERSUS = {
   /** Match length once the countdown ends. Every team world uses this as its mission.durationMs. */
   matchDurationMs: 120_000,
-  /** "3-2-1-GO" before the boats can move. */
-  countdownMs: 3_000,
+  /**
+   * "3-2-1-GO" before the boats can move. 3.5 s = when the countdown clip
+   * (public/audio/sfx/countdown-go.mp3) says "GO" at its natural speed, so GO and the start line up.
+   */
+  countdownMs: 3_500,
   /** UI turns dramatic (red clock, pulse, sound) when this much time is left. */
   finalCountdownMs: 10_000,
   /** SpectatorMatchView.recentRescues keeps at most this many (newest last). */

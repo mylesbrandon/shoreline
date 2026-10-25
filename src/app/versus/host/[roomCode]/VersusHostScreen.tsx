@@ -22,6 +22,7 @@ import { VersusSpectatorDisplay } from "@/components/ocean/versus/VersusSpectato
 import { VersusResults } from "@/components/ocean/versus/VersusResults";
 import { SoundToggle } from "@/components/shared/audio/SoundToggle";
 import { useHostMusic } from "@/lib/audio/use-host-music";
+import { useHostAwake } from "./use-host-awake";
 
 const seatKey = (s: PlayerTeamAssignment) => `${s.team}:${s.role}`;
 
@@ -44,6 +45,8 @@ export function VersusHostScreen({ roomCode, lanOrigin = null }: { roomCode: str
   }, [session]);
 
   const playing = snap.room.status === "playing";
+  const matchRunning = snap.spectator.scoreboard.phase === "countdown" || snap.spectator.scoreboard.phase === "active";
+  const awake = useHostAwake(matchRunning);
   const result = snap.spectator.scoreboard.result;
   const seated = snap.room.players.filter((p) => p.slot !== null && p.connected).length;
 
@@ -55,6 +58,16 @@ export function VersusHostScreen({ roomCode, lanOrigin = null }: { roomCode: str
       <main className="mx-auto grid w-full max-w-7xl flex-1 gap-6 px-4 py-6 lg:grid-cols-[1fr_360px] lg:px-8">
         <section className="grid content-start gap-3">
           {!isMock && <ConnectionBanner status={snap.status} error={snap.error} />}
+          {awake.wasHidden && (
+            <div role="alert" className="flex items-center justify-between gap-3 rounded-2xl border-2 border-amber bg-amber/15 px-4 py-3 text-amber">
+              <p className="font-semibold">
+                The host tab was in the background, so the match slowed down for everyone. Keep this tab in front during a match.
+              </p>
+              <button type="button" onClick={awake.dismiss} className="h-10 shrink-0 rounded-xl border border-amber px-3 font-semibold">
+                Got it
+              </button>
+            </div>
+          )}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <Link href="/" className="text-3xl focus-visible:outline-2 focus-visible:outline-amber">
               <Wordmark />
@@ -88,7 +101,7 @@ export function VersusHostScreen({ roomCode, lanOrigin = null }: { roomCode: str
             <p className="rounded-xl border border-hazard/50 bg-hazard/10 p-3 text-sm text-hazard">{snap.error}</p>
           )}
           {result && (
-            <VersusResults result={result} footer={<p className="text-sm text-mist">Start a new match, then blow the whistle.</p>} />
+            <VersusResults result={result} landing={false} footer={<p className="text-sm text-mist">Start a new match, then blow the whistle.</p>} />
           )}
 
           <p className="flex items-baseline justify-between px-1 text-mist">

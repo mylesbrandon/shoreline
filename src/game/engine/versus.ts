@@ -40,11 +40,12 @@ import { applyAction as applyGameAction, validateAction } from "./actions";
 import { scoreMission } from "./score";
 import { createInitialState } from "./state";
 import { step as stepGame, type StepTuning } from "./step";
-import { besideFormation, landBetween, reachability, withFormations } from "./formations";
+import { besideFormation, landBetween, reachability, withFormations, withJellies } from "./formations";
 import { survivorSpawn } from "./survivors";
 import {
   getCaptainSurvivor,
   getCaptainView,
+  getLiveSpectatorView,
   getRadioView,
   getSonarView,
   getSpectatorView as getGameSpectatorView,
@@ -129,7 +130,10 @@ const DOCKS: readonly Vec2[] = [dockFor("blue"), dockFor("red")];
 function createWorld(team: TeamId, seed: number, matchId: string): TeamWorld {
   const state = createInitialState({ seed, gameId: matchId });
   // Same seed and inputs for both crews, so both worlds get the identical reef field.
-  const hazards = withFormations(seed, state.hazards, DOCKS, state.target.position, VERSUS_RULES.rescueRadius);
+  const hazards = withJellies(
+    seed,
+    withFormations(seed, state.hazards, DOCKS, state.target.position, VERSUS_RULES.rescueRadius),
+  );
   return {
     team,
     state: {
@@ -459,6 +463,7 @@ export function getScoreboard(match: VersusMatchState): MatchScoreboard {
 }
 
 export function getMatchSpectatorView(match: VersusMatchState): SpectatorMatchView {
+  const bigScreen = match.phase === "active" ? getLiveSpectatorView : getGameSpectatorView;
   const recentRescues = TEAMS.flatMap((team) => match.teams[team].rescueLog)
     .sort((a, b) => a.atMs - b.atMs)
     .slice(-VERSUS.recentRescuesKept);
@@ -467,7 +472,11 @@ export function getMatchSpectatorView(match: VersusMatchState): SpectatorMatchVi
     matchId: match.matchId,
     tick: match.tick,
     scoreboard: getScoreboard(match),
-    teams: { blue: getGameSpectatorView(match.teams.blue.state), red: getGameSpectatorView(match.teams.red.state) },
+    // The big screen shows the live survivor once play starts (views.ts decides; phones never get it).
+    teams: {
+      blue: bigScreen(match.teams.blue.state),
+      red: bigScreen(match.teams.red.state),
+    },
     recentRescues,
   };
 }

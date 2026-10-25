@@ -3,7 +3,8 @@
  * OWNER: Developer 1 (engine). This is the ONLY place that decides who sees what.
  *
  * Rules (see docs/CONTRACTS.md "Hidden information"):
- * - Nobody but the engine sees `target` until the mission ends (spectator gets it at the end),
+ * - Nobody but the engine sees `target` until the mission ends (spectator gets it at the end;
+ *   the versus BIG SCREEN gets it live via getLiveSpectatorView — no phone ever does),
  *   except Sonar: a ping in range records a "gull" contact (actions.ts), shown only in the Sonar view,
  *   and, in versus only, the Captain once the survivor is in lookout range (getCaptainSurvivor).
  * - The captain sees hazards within CAPTAIN.visualRange, plus sonar contacts for a few seconds.
@@ -138,6 +139,15 @@ export function getRoleViews(state: GameState): RoleViews {
 
 export function getRoleView<R extends Role>(state: GameState, role: R): RoleViews[R] {
   return getRoleViews(state)[role];
+}
+
+/**
+ * VERSUS big screen only: the spectator view WITH the live survivor while the match runs, so the
+ * room can see what the crews are racing for (audit r9). The laptop is a shared screen, not a
+ * seat: no phone view ever uses this. Co-op keeps getSpectatorView (target only after the end).
+ */
+export function getLiveSpectatorView(state: GameState): SpectatorView {
+  return { ...getSpectatorView(state), target: { ...state.target, position: { ...state.target.position } } };
 }
 
 export function getSpectatorView(state: GameState): SpectatorView {
