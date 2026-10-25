@@ -472,8 +472,13 @@ export function drawScene(ctx: CanvasRenderingContext2D, size: number, scene: Oc
     else drawHazard(ctx, cam, h, timeMs);
   }
   for (const m of scene.markers) drawMarker(ctx, cam, m);
-  if (scene.target) (scene.versus ? drawTarget : drawCoopTarget)(ctx, cam, scene.target, timeMs);
+  // Versus Driver window: the person goes ABOVE the glare. The engine sends them once their rescue
+  // ring reaches the lookout circle, i.e. often just outside the clear area, where the 93% glare
+  // would hide them until the instant of pickup.
+  const personOverGlare = scene.versus && scene.window;
+  if (scene.target && !personOverGlare) (scene.versus ? drawTarget : drawCoopTarget)(ctx, cam, scene.target, timeMs);
   if (scene.window) drawGlare(ctx, size, cam, scene.window.lookout);
+  if (scene.target && personOverGlare) drawTarget(ctx, cam, scene.target, timeMs);
   drawBoat(ctx, size, cam, scene.boat, scene.boatTint);
   if (scene.window) {
     for (const m of scene.markers) if (m.kind === "target_guess") drawEdgeArrow(ctx, size, cam, m);
