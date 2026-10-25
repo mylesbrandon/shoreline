@@ -15,8 +15,8 @@ export default function Home() {
             <Wordmark />
           </h1>
           <p className="max-w-[36ch] text-xl leading-snug text-mist sm:text-2xl">
-            The rip is pulling swimmers past the buoys. Two lifeguard crews race to bring them in, and the crew with more
-            rescues after {VERSUS.matchDurationMs / 1000} seconds wins.
+            The current is pulling swimmers past the buoys. Two lifeguard crews race to bring them in, and the crew with
+            more rescues after {VERSUS.matchDurationMs / 1000} seconds wins!
           </p>
         </header>
 
@@ -28,7 +28,7 @@ export default function Home() {
           <div className="grid content-start gap-3 sm:pr-7">
             <h2 className="font-poster text-2xl">On the laptop</h2>
             <HostButton />
-            <p className="text-base leading-snug">It becomes the big screen: both crews, the clock and the score.</p>
+            <p className="text-base leading-snug">It becomes the big screen with both crews, and the scoreboard.</p>
           </div>
           <div className="grid content-start gap-3 border-t-2 border-dashed border-wet-sand pt-6 sm:border-t-0 sm:border-l-2 sm:pt-0 sm:pl-7">
             <h2 className="font-poster text-2xl">On each phone</h2>
