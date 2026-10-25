@@ -6,11 +6,9 @@
  * Two ordinary co-op GameStates (one per team) built from the same seed and stepped with the same
  * dtMs, so physics, collisions, sonar, radio and hidden-information rules are reused unchanged.
  *
- * BASELINE ADAPTER (handoff versus-1): this already routes actions per team, runs the countdown
- * and the shared clock, and declares the winner, so the host and UIs can integrate against real
- * behaviour today. Its two gaps are Developer 1's task (marked TODO(dev1)):
- * - a rescue freezes that team's world (one rescue max) instead of spawning the next survivor;
- * - a hull at 0 freezes that team's world instead of a wipeout + respawn at the start.
+ * Each world keeps the co-op single survivor (GameState.target). A rescue counts once and the next
+ * survivor in the shared sequence (./survivors.ts) appears; a hull at 0 is a wipeout that respawns
+ * the boat at the start. Either way the world stays active until the shared clock ends the match.
  */
 import { decideWinner, TEAMS, VERSUS, versusRoleMay } from "../versus/contract";
 import type {
@@ -20,6 +18,7 @@ import type {
   MatchScoreboard,
   MatchStepResult,
   PlayerTeamAssignment,
+  RescueEvent,
   SpectatorMatchView,
   TeamId,
   TeamScore,
@@ -29,10 +28,13 @@ import type {
   VersusMatchState,
   VersusViews,
 } from "../versus/contract";
-import type { PlayerAction, PlayerActionType, Role } from "../types";
+import { BOAT, MISSION } from "../config";
+import type { GameState, PlayerAction, PlayerActionType, Role } from "../types";
 import { applyAction as applyGameAction } from "./actions";
+import { scoreMission } from "./score";
 import { createInitialState } from "./state";
 import { step as stepGame } from "./step";
+import { survivorSpawn } from "./survivors";
 import { getCaptainView, getRadioView, getSonarView, getSpectatorView as getGameSpectatorView } from "./views";
 
 /**
@@ -103,7 +105,32 @@ export function applyMatchAction(
   };
 }
 
-function stepWorld(world: TeamWorld, dtMs: number, events: MatchEvent[]): TeamWorld {
+/**
+ * Back to "active" after a rescue or a wipeout, so the team keeps playing. If that same step also
+ * ran the clock out, end the world as the co-op timeout it would otherwise have been: the match
+ * ends this step anyway, and the spectator view only reveals a world's survivor once it has ended.
+ */
+function resume(state: GameState): GameState {
+  const { mission } = state;
+  if (mission.elapsedMs >= mission.durationMs) {
+    return { ...state, mission: { ...mission, phase: "failure", failureReason: "timeout", score: scoreMission(state, "failure") } };
+  }
+  return { ...state, mission: { ...mission, phase: "active", failureReason: null, score: null } };
+}
+
+/** The next survivor appears and everything that tracked the old one is cleared. */
+function nextSurvivor(state: GameState, seed: number, survivorIndex: number): GameState {
+  return {
+    ...state,
+    target: { ...state.target, position: survivorSpawn(seed, survivorIndex, state.hazards, state.boat.position) },
+    // lastScanAtMs stays, so the scan cooldown still holds across a rescue.
+    radio: { ...state.radio, readings: [] },
+    markers: state.markers.filter((m) => m.kind !== "target_guess"),
+    sonar: { ...state.sonar, contacts: state.sonar.contacts.filter((c) => c.kind !== "gull") },
+  };
+}
+
+function stepWorld(world: TeamWorld, seed: number, dtMs: number, events: MatchEvent[]): TeamWorld {
   const wasActive = world.state.mission.phase === "active";
   const r = stepGame(world.state, dtMs);
   for (const event of r.events) {
@@ -112,16 +139,36 @@ function stepWorld(world: TeamWorld, dtMs: number, events: MatchEvent[]): TeamWo
   if (!wasActive) return { ...world, state: r.state };
   const { phase, failureReason, elapsedMs } = r.state.mission;
 
-  // TODO(dev1): spawn the next survivor from the shared sequence and keep the world active.
+  // Co-op precedence already decided this step: hull_destroyed > victory > timeout. So a sunk
+  // boat never also rescues, and a rescue on the final step still counts.
   if (phase === "victory") {
-    const rescue = { team: world.team, survivorIndex: world.rescues, position: { ...r.state.target.position }, atMs: elapsedMs };
+    const rescue: RescueEvent = {
+      team: world.team,
+      survivorIndex: world.rescues,
+      position: { ...r.state.target.position },
+      atMs: elapsedMs,
+    };
     events.push({ type: "SURVIVOR_RESCUED", rescue });
-    return { ...world, state: r.state, rescues: world.rescues + 1, lastRescueAtMs: elapsedMs, rescueLog: [...world.rescueLog, rescue] };
+    return {
+      ...world,
+      state: resume(nextSurvivor(r.state, seed, world.rescues + 1)),
+      rescues: world.rescues + 1,
+      lastRescueAtMs: elapsedMs,
+      rescueLog: [...world.rescueLog, rescue],
+    };
   }
-  // TODO(dev1): wipeout = boat back at the start with a full hull, world stays active.
+  // Wipeout: back to the start with a full hull; the trip back is the penalty. Throttle and rudder
+  // are kept so the Driver's controls still show what the boat is doing. The survivor stays put.
   if (phase === "failure" && failureReason === "hull_destroyed") {
     events.push({ type: "BOAT_WIPEOUT", team: world.team, atMs: elapsedMs });
-    return { ...world, state: r.state, wipeouts: world.wipeouts + 1 };
+    const boat = {
+      ...r.state.boat,
+      position: { x: MISSION.boatStart.x, y: MISSION.boatStart.y },
+      heading: MISSION.boatStartHeading,
+      speed: 0,
+      hull: BOAT.startHull,
+    };
+    return { ...world, state: resume({ ...r.state, boat }), wipeouts: world.wipeouts + 1 };
   }
   return { ...world, state: r.state };
 }
@@ -154,7 +201,7 @@ export function stepMatch(match: VersusMatchState, dtMs: number): MatchStepResul
   if (match.phase !== "active") return { match, events: [] };
 
   const events: MatchEvent[] = [];
-  const teams = mapTeams(match, (w) => stepWorld(w, dtMs, events));
+  const teams = mapTeams(match, (w) => stepWorld(w, match.seed, dtMs, events));
   const elapsedMs = Math.min(match.elapsedMs + dtMs, match.durationMs);
   const next: VersusMatchState = { ...match, tick: match.tick + 1, elapsedMs, teams };
   if (elapsedMs < match.durationMs) return { match: next, events };

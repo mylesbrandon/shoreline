@@ -1,7 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Ship } from "lucide-react";
+import { Ship, Swords } from "lucide-react";
 import { generateRoomCode, isValidRoomCode, normalizeRoomCode } from "@/lib/realtime/room-code";
 
 export function HostButton() {
@@ -13,6 +13,20 @@ export function HostButton() {
       className="flex h-14 items-center justify-center gap-2 rounded-xl bg-teal font-semibold uppercase tracking-[0.2em] text-abyss transition hover:brightness-110 active:scale-[0.98]"
     >
       <Ship className="size-5" /> Host a rescue
+    </button>
+  );
+}
+
+/** 2v2 "Rescue Showdown". Co-op stays the primary button; this sits directly under it. */
+export function VersusHostButton() {
+  const router = useRouter();
+  return (
+    <button
+      type="button"
+      onClick={() => router.push(`/versus/host/${generateRoomCode()}`)}
+      className="flex h-14 items-center justify-center gap-2 rounded-xl border-2 border-teal font-semibold uppercase tracking-[0.2em] text-teal transition hover:brightness-110 active:scale-[0.98]"
+    >
+      <Swords className="size-5" /> Host a Rescue Showdown (2v2)
     </button>
   );
 }
