@@ -5,9 +5,10 @@
  */
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { step as stepGame, versusEngine as V } from "./index";
+import { getCaptainView, step as stepGame, versusEngine as V } from "./index";
+import { VERSUS_RULES } from "./versus";
 import { SURVIVORS, survivorSpawn } from "./survivors";
-import { BOAT, MISSION, NETWORK } from "../config";
+import { BOAT, CAPTAIN, MISSION, NETWORK, TARGET } from "../config";
 import {
   decideWinner,
   VERSUS,
@@ -16,7 +17,7 @@ import {
   type TeamId,
   type VersusMatchState,
 } from "../versus/contract";
-import type { GameState, PlayerAction, Vec2 } from "../types";
+import type { GameState, HazardKind, PlayerAction, Vec2 } from "../types";
 
 const DT = 1000 / NETWORK.simHz;
 const BLUE_CAPTAIN: PlayerTeamAssignment = { team: "blue", role: "captain" };
@@ -223,18 +224,21 @@ const BOTH: readonly TeamId[] = ["blue", "red"];
 /** Park a team's boat on its current survivor. */
 const parkOnSurvivor = (s: GameState): GameState => ({ ...s, boat: { ...s.boat, position: { ...s.target.position } } });
 
-/** Put the boat inside its first hazard with `hull` left, so the next step's hit sinks it. */
-const onReefWithHull =
-  (hull: number) =>
+/** Turn the first hazard into `kind` and put the boat inside it with `hull` left, so the next step hits it. */
+const onHazardWithHull =
+  (kind: HazardKind, hull: number) =>
   (s: GameState): GameState => {
     const h = s.hazards[0];
     assert.ok(h, "layout has a hazard");
     return {
       ...s,
-      hazards: s.hazards.map((x) => (x.id === h.id ? { ...x, lastHitAtMs: null } : x)),
+      hazards: s.hazards.map((x) => (x.id === h.id ? { ...x, kind, lastHitAtMs: null } : x)),
       boat: { ...s.boat, position: { ...h.position }, hull },
     };
   };
+
+/** On a jellyfish bloom (the only hull damage in versus) with `hull` left: ≤ 25 wrecks the boat. */
+const onJellyWithHull = (hull: number) => onHazardWithHull("debris", hull);
 
 function stepEvents(m: VersusMatchState): { match: VersusMatchState; events: MatchEvent[] } {
   return V.step(m, DT);
@@ -287,7 +291,7 @@ describe("versus: survivors respawn", () => {
   test("the next survivor spawns valid and away from the rescuing boat", () => {
     const m = V.step(editWorld(active(), "blue", parkOnSurvivor), DT).match;
     const s = m.teams.blue.state;
-    assert.deepEqual(s.target.position, survivorSpawn(m.seed, 1, s.hazards, s.boat.position));
+    assert.deepEqual(s.target.position, survivorSpawn(m.seed, 1, s.hazards, s.boat.position, s.target.rescueRadius));
     assert.ok(Math.hypot(s.target.position.x - s.boat.position.x, s.target.position.y - s.boat.position.y) >= SURVIVORS.minSpawnFromBoat);
   });
 
@@ -349,15 +353,14 @@ describe("versus: survivors respawn", () => {
 });
 
 describe("versus: wipeouts", () => {
-  test("hull 0 respawns the boat at the start, once, and the world stays active", () => {
-    let m = editWorld(active(), "blue", (s) => onReefWithHull(10)({ ...s, boat: { ...s.boat, throttle: 0.6, rudder: -0.3 } }));
+  test("jellyfish taking the hull to 0 wreck the boat: back at the start, once, world stays active", () => {
+    let m = editWorld(active(), "blue", (s) => onJellyWithHull(10)({ ...s, boat: { ...s.boat, throttle: 0.6, rudder: -0.3 } }));
     const expectedTarget = stepGame(m.teams.blue.state, DT).state.target;
     const r = stepEvents(m);
     m = r.match;
     assert.equal(count(r.events, "BOAT_WIPEOUT"), 1);
     assert.deepEqual(
       r.events.find((e) => e.type === "BOAT_WIPEOUT"),
-      // TODO(dev1): expect cause "aground" for land once the land/jelly split lands.
       { type: "BOAT_WIPEOUT", team: "blue", atMs: m.elapsedMs, cause: "wrecked" },
     );
     assert.equal(count(r.events, "SURVIVOR_RESCUED"), 0);
@@ -390,7 +393,7 @@ describe("versus: wipeouts", () => {
   test("hull 0 and the survivor in the same step: wipeout, no rescue", () => {
     const m = editWorld(active(), "blue", (s) => ({
       ...s,
-      hazards: [{ id: "trap", kind: "reef", position: { ...s.target.position }, radius: 0.04, revealed: false, lastHitAtMs: null }],
+      hazards: [{ id: "trap", kind: "debris", position: { ...s.target.position }, radius: 0.04, revealed: false, lastHitAtMs: null }],
       boat: { ...s.boat, position: { ...s.target.position }, hull: 20 },
     }));
     const r = V.step(m, DT);
@@ -404,7 +407,7 @@ describe("versus: wipeouts", () => {
   test("repeated wipeouts never end the match early", () => {
     let m = active();
     for (let i = 1; i <= 4; i++) {
-      m = V.step(editWorld(m, "red", onReefWithHull(5)), DT).match;
+      m = V.step(editWorld(m, "red", onJellyWithHull(5)), DT).match;
       assert.equal(m.teams.red.wipeouts, i);
       assert.equal(m.phase, "active");
     }
@@ -431,7 +434,7 @@ describe("versus: timer, scoring and determinism", () => {
   });
 
   test("a wipeout on the final step still lets the match end normally", () => {
-    const m = editWorld(at(active(), VERSUS.matchDurationMs - DT / 2), "red", onReefWithHull(5));
+    const m = editWorld(at(active(), VERSUS.matchDurationMs - DT / 2), "red", onJellyWithHull(5));
     const r = V.step(m, DT);
     assert.equal(count(r.events, "BOAT_WIPEOUT"), 1);
     assert.equal(r.match.phase, "ended");
@@ -464,7 +467,7 @@ describe("versus: timer, scoring and determinism", () => {
     let m = active();
     for (let i = 0; i < 120; i++) {
       if (i % 20 === 5) m = editWorld(m, "blue", parkOnSurvivor);
-      if (i % 30 === 10) m = editWorld(m, "red", onReefWithHull(5));
+      if (i % 30 === 10) m = editWorld(m, "red", onJellyWithHull(5));
       m = V.step(m, DT).match;
       assertInvariants(m);
       assert.equal(m.teams.blue.state.mission.elapsedMs, m.teams.red.state.mission.elapsedMs);
@@ -495,7 +498,7 @@ describe("versus: timer, scoring and determinism", () => {
       if (tick % 210 === 0) tryAct(BLUE_NAV, { type: "MARK_TARGET", position: { x: 0.3, y: 0.3 } });
       if (tick % 400 === 200) m = editWorld(m, "blue", parkOnSurvivor);
       if (tick % 550 === 300) m = editWorld(m, "red", parkOnSurvivor);
-      if (tick % 900 === 450) m = editWorld(m, "red", onReefWithHull(5));
+      if (tick % 900 === 450) m = editWorld(m, "red", onJellyWithHull(5));
       const r = V.step(m, DT);
       m = r.match;
       events.push(...r.events);
@@ -521,10 +524,168 @@ describe("versus: timer, scoring and determinism", () => {
   });
 
   test("step never mutates its input across a rescue and a wipeout", () => {
-    const m = editWorld(editWorld(active(), "blue", parkOnSurvivor), "red", onReefWithHull(5));
+    const m = editWorld(editWorld(active(), "blue", parkOnSurvivor), "red", onJellyWithHull(5));
     const copy = structuredClone(m);
     const r = V.step(m, DT);
     assert.equal(count(r.events, "SURVIVOR_RESCUED") + count(r.events, "BOAT_WIPEOUT"), 2);
     assert.deepEqual(m, copy);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Playtest round 2 (contract versus-2): land vs jellyfish, speed, pickup, the Driver's view
+// ---------------------------------------------------------------------------
+
+const hullHits = (events: MatchEvent[]) =>
+  events.flatMap((e) => (e.type === "TEAM_GAME_EVENT" && e.event.type === "HAZARD_HIT" ? [e.event] : []));
+
+describe("versus: land runs you aground, only jellyfish hurt", () => {
+  for (const kind of ["reef", "rock"] as const) {
+    test(`touching ${kind === "reef" ? "a sandbar" : "rocks"} runs aground: back at the start, hull untouched`, () => {
+      let m = editWorld(active(), "blue", (s) => onHazardWithHull(kind, 60)({ ...s, boat: { ...s.boat, throttle: 1, rudder: 0.4 } }));
+      const r = stepEvents(m);
+      m = r.match;
+      assert.deepEqual(
+        r.events.filter((e) => e.type === "BOAT_WIPEOUT"),
+        [{ type: "BOAT_WIPEOUT", team: "blue", atMs: m.elapsedMs, cause: "aground" }],
+      );
+      const blue = m.teams.blue;
+      assert.equal(blue.state.boat.hull, 60, "land never damages the hull");
+      assert.deepEqual(blue.state.boat.position, MISSION.boatStart);
+      assert.equal(blue.state.boat.speed, 0);
+      assert.deepEqual([blue.state.boat.throttle, blue.state.boat.rudder], [1, 0.4]);
+      assert.equal(blue.wipeouts, 1);
+      assert.equal(blue.state.mission.phase, "active");
+      assert.deepEqual(hullHits(r.events).map((h) => h.damage), [0], "the hit is reported with no damage");
+      assert.equal(V.getScoreboard(m).scores.blue.hull, 60);
+    });
+  }
+
+  test("land with a low hull still runs aground (no wreck, hull kept)", () => {
+    const r = V.step(editWorld(active(), "red", onHazardWithHull("rock", 10)), DT);
+    const wipeout = r.events.find((e) => e.type === "BOAT_WIPEOUT");
+    assert.ok(wipeout?.type === "BOAT_WIPEOUT" && wipeout.cause === "aground");
+    assert.equal(r.match.teams.red.state.boat.hull, 10);
+  });
+
+  test("a jellyfish sting costs hull but the boat keeps going", () => {
+    const m = editWorld(active(), "blue", onJellyWithHull(60));
+    const before = m.teams.blue.state.boat.position;
+    const r = V.step(m, DT);
+    assert.equal(count(r.events, "BOAT_WIPEOUT"), 0);
+    assert.deepEqual(hullHits(r.events).map((h) => h.damage), [BOAT.collisionDamage]);
+    const blue = r.match.teams.blue;
+    assert.equal(blue.state.boat.hull, 60 - BOAT.collisionDamage);
+    assert.ok(Math.hypot(blue.state.boat.position.x - before.x, blue.state.boat.position.y - before.y) < 0.01, "not respawned");
+    assert.equal(blue.wipeouts, 0);
+  });
+
+  test("land and a wrecking sting in the same step: wrecked, full hull", () => {
+    const m = editWorld(active(), "blue", (s) => {
+      const placed = onJellyWithHull(20)(s);
+      const at = placed.boat.position;
+      return {
+        ...placed,
+        hazards: [
+          { id: "jelly", kind: "debris", position: { ...at }, radius: 0.04, revealed: false, lastHitAtMs: null },
+          { id: "bar", kind: "reef", position: { ...at }, radius: 0.04, revealed: false, lastHitAtMs: null },
+        ],
+      };
+    });
+    const r = V.step(m, DT);
+    const wipeouts = r.events.filter((e) => e.type === "BOAT_WIPEOUT");
+    assert.equal(wipeouts.length, 1);
+    assert.ok(wipeouts[0]?.type === "BOAT_WIPEOUT" && wipeouts[0].cause === "wrecked");
+    assert.equal(r.match.teams.blue.state.boat.hull, BOAT.startHull);
+  });
+
+  test("land beside the survivor: aground, no rescue", () => {
+    const m = editWorld(active(), "blue", (s) => ({
+      ...s,
+      hazards: [{ id: "bar", kind: "reef", position: { ...s.target.position }, radius: 0.04, revealed: false, lastHitAtMs: null }],
+      boat: { ...s.boat, position: { ...s.target.position } },
+    }));
+    const r = V.step(m, DT);
+    assert.equal(count(r.events, "SURVIVOR_RESCUED"), 0);
+    assert.equal(r.match.teams.blue.rescues, 0);
+    assert.equal(r.match.teams.blue.wipeouts, 1);
+  });
+});
+
+describe("versus: speed and pickup", () => {
+  test(`boats reach ${VERSUS_RULES.boatSpeedFactor}× co-op top speed`, () => {
+    let m = editWorld(editWorld(active(), "blue", openWater), "red", openWater);
+    m = act(m, BLUE_CAPTAIN, { type: "SET_THROTTLE", throttle: 1 });
+    m = run(m, 150);
+    assert.equal(m.teams.blue.state.boat.speed, BOAT.maxSpeed * VERSUS_RULES.boatSpeedFactor);
+  });
+
+  test("co-op step without tuning is unchanged", () => {
+    const s0 = openWater(active().teams.blue.state);
+    let s: GameState = { ...s0, boat: { ...s0.boat, throttle: 1 } };
+    for (let i = 0; i < 150; i++) s = stepGame(s, DT).state;
+    assert.equal(s.boat.speed, BOAT.maxSpeed);
+  });
+
+  test("the pickup radius is wider in versus, and identical for both teams", () => {
+    const m = fresh();
+    assert.equal(m.teams.blue.state.target.rescueRadius, VERSUS_RULES.rescueRadius);
+    assert.ok(VERSUS_RULES.rescueRadius > TARGET.rescueRadius);
+    assert.deepEqual(m.teams.blue.state.target, m.teams.red.state.target);
+  });
+
+  test("a boat that stops just inside the wider radius picks the person up", () => {
+    const m = editWorld(active(), "blue", (s) => ({
+      ...s,
+      boat: { ...s.boat, position: { x: s.target.position.x, y: s.target.position.y + VERSUS_RULES.rescueRadius * 0.9 } },
+    }));
+    assert.equal(V.step(m, DT).match.teams.blue.rescues, 1);
+  });
+});
+
+describe("versus: the Driver sees less, but sees the person up close", () => {
+  /** Put the boat `d` south of the survivor (no hazards, calm water). */
+  const southOfSurvivor = (d: number) => (s: GameState): GameState => {
+    const w = openWater(s);
+    const target = { position: { x: 0.5, y: 0.4 }, rescueRadius: VERSUS_RULES.rescueRadius };
+    return { ...w, target, boat: { ...w.boat, position: { x: 0.5, y: 0.4 + d } } };
+  };
+
+  test("survivor is null until their rescue ring reaches the lookout circle", () => {
+    const edge = VERSUS.captainVisualRange + VERSUS_RULES.rescueRadius;
+    const far = V.getViews(editWorld(active(), "blue", southOfSurvivor(edge + 0.01)));
+    assert.equal(far.blue.captain.survivor, null);
+    const near = V.getViews(editWorld(active(), "blue", southOfSurvivor(edge - 0.01)));
+    assert.deepEqual(near.blue.captain.survivor, { x: 0.5, y: 0.4 });
+    assert.equal(near.red.captain.survivor, null, "red's own survivor is far from red's boat");
+    assert.ok(edge - 0.01 > VERSUS_RULES.rescueRadius, "visible before the pickup happens");
+    assert.ok(!("target" in near.blue.captain.captain), "the co-op CaptainView still hides target");
+    assert.ok(!("survivor" in near.blue.navigator), "the Navigator gets no survivor field");
+  });
+
+  test("lookout is smaller than co-op: a hazard co-op would show stays hidden", () => {
+    const d = (VERSUS.captainVisualRange + CAPTAIN.visualRange) / 2;
+    const m = editWorld(active(), "blue", (s) => ({
+      ...openWater(s),
+      hazards: [{ id: "h", kind: "reef", position: { x: 0.5, y: 0.5 - d }, radius: 0.0001, revealed: false, lastHitAtMs: null }],
+      boat: { ...s.boat, position: { x: 0.5, y: 0.5 } },
+    }));
+    const state = m.teams.blue.state;
+    assert.equal(getCaptainView(state).visibleHazards.length, 1, "co-op lookout sees it");
+    assert.equal(V.getViews(m).blue.captain.captain.visibleHazards.length, 0, "versus lookout doesn't");
+  });
+
+  test("drone contacts show on the Driver's screen for 3 s, not 5 s", () => {
+    let m = editWorld(active(), "blue", (s) => ({
+      ...openWater(s),
+      hazards: [{ id: "far", kind: "rock", position: { x: 0.5, y: 0.6 }, radius: 0.03, revealed: false, lastHitAtMs: null }],
+      boat: { ...s.boat, position: { x: 0.5, y: 0.8 } },
+    }));
+    m = act(m, BLUE_NAV, { type: "SONAR_PING" });
+    assert.equal(V.getViews(m).blue.captain.captain.visibleHazards.length, 1);
+    m = at(m, m.elapsedMs + VERSUS_RULES.captainSonarRevealMs - 100);
+    assert.equal(V.getViews(m).blue.captain.captain.visibleHazards.length, 1);
+    m = at(m, m.elapsedMs + 200);
+    assert.equal(V.getViews(m).blue.captain.captain.visibleHazards.length, 0);
   });
 });
