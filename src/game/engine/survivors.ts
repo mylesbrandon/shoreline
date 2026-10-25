@@ -6,7 +6,7 @@
  * derived only from (seed, survivorIndex), never from the world's state, so both teams get the
  * same survivor positions in the same order.
  *
- * Pure and deterministic: createRng, no Math.random().
+ * Pure and deterministic: every random draw comes from createRng.
  */
 import { TARGET } from "../config";
 import type { Hazard, Vec2 } from "../types";
