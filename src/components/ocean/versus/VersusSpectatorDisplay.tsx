@@ -45,9 +45,15 @@ export function VersusSpectatorDisplay({ view }: VersusSpectatorDisplayProps) {
       <p className={styles.sharedCaption}>ONE OCEAN · ONE PERSON · TWO CREWS</p>
       <div className="vs-map-square" data-shared-map>
         <OceanCanvas gameId={view.matchId} boat={world.boat} hazards={shared.hazards} markers={shared.markers}
-          target={scoreboard.result ? world.target : null} stormIntensity={world.weather.stormIntensity}
+          target={world.target} stormIntensity={world.weather.stormIntensity}
           elapsedMs={scoreboard.elapsedMs} boatTint={TEAM_INFO.blue.hex} versus
           additionalBoats={[{ id: "red", boat: view.teams.red.boat, tint: TEAM_INFO.red.hex, label: TEAM_INFO.red.label }]} />
+        {/* The person is live on the big screen only (the engine's live spectator view); a tag makes
+            clear the crews are racing blind toward it. */}
+        {world.target && !scoreboard.result && <div className={styles.personTag} aria-hidden style={{
+          left: Math.max(0, Math.min(1, world.target.position.x)) * 100 + "%",
+          top: Math.max(0, Math.min(1, world.target.position.y)) * 100 + "%",
+        }}><i /><span>Crews can&apos;t see this</span></div>}
         {feedback.bursts.map((burst) =>
           <div key={burst.key} className="vs-rescue-burst" data-rescue-team={burst.rescue.team} style={{
             left: Math.max(0, Math.min(1, burst.rescue.position.x)) * 100 + "%",
