@@ -3,7 +3,7 @@ import { MISSION } from "@/game/config";
 import { Wordmark } from "@/components/shared/Wordmark";
 import { ROLES } from "@/game/types";
 import { ROLE_INFO } from "@/components/shared/roles";
-import { HostButton, JoinForm } from "./LandingActions";
+import { HostButton, JoinForm, VersusHostButton } from "./LandingActions";
 import { resolveTransportKind } from "@/lib/realtime/env";
 import { ModeBadge } from "@/components/shared/ModeBadge";
 
@@ -28,6 +28,7 @@ export default function Home() {
           <div className="instrument grid gap-3 rounded-2xl p-5">
             <h2 className="font-mono text-xs uppercase tracking-[0.25em] text-mist">On the big screen</h2>
             <HostButton />
+            <VersusHostButton />
           </div>
           <div className="instrument grid gap-3 rounded-2xl p-5">
             <h2 className="font-mono text-xs uppercase tracking-[0.25em] text-mist">On your phone</h2>
