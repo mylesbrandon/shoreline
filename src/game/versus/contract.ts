@@ -111,7 +111,7 @@ export const VERSUS = {
   captainWindowSpan: 0.18,
 } as const;
 
-/** Versus hazard classes. Sandbars (reef) and rocks are LAND: touching one runs the boat aground (back to the start, hull untouched). Jellyfish (debris) are the only hazard that damages the hull. */
+/** Versus hazard classes. Sandbars (reef) and rocks are LAND: touching one runs the boat aground (back to its dock, hull repaired to full). Jellyfish (debris) are the only hazard that damages the hull. */
 export type HazardClass = "land" | "jelly";
 
 export function hazardClass(kind: HazardKind): HazardClass {
