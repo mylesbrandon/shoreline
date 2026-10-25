@@ -13,6 +13,7 @@ import { MockRoomTransport } from "@/lib/realtime/mock-transport";
 import { createMessage } from "@/lib/realtime/protocol";
 import { VersusHostSession } from "./versus-host-session";
 import { VersusPlayerSession } from "./versus-player-session";
+import { waitFor } from "./wait-for";
 
 const flush = () => new Promise((r) => setTimeout(r, 10));
 const DT = 1000 / NETWORK.simHz;
@@ -26,7 +27,11 @@ async function setup(code: string, names: string[]) {
     await p.start({ watchdog: false });
     players.push(p);
   }
-  await flush();
+  // Every phone listed by the host, and every phone has heard back about its seat.
+  await waitFor(
+    () => host.store.get().room.players.length === names.length && players.every((p) => p.store.get().me !== null),
+    `${names.length} players joined and seated`,
+  );
   return { host, players };
 }
 
@@ -52,7 +57,7 @@ describe("versus host + phone sessions (mock transport)", () => {
     host.startMatch();
     tickPastCountdown(host);
     players[4]!.sendAction({ type: "STEER", rudder: 1 });
-    await flush();
+    await waitFor(() => players[4]!.store.get().lastRejection !== null, "the fifth phone's rejection");
     assert.equal(players[4]!.store.get().lastRejection?.reason, "unknown_player");
     await host.stop();
   });

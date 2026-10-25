@@ -7,6 +7,7 @@ import { engine } from "@/game/engine";
 import { MockRoomTransport } from "@/lib/realtime/mock-transport";
 import { HostSession } from "./host-session";
 import { PlayerSession } from "./player-session";
+import { waitFor } from "./wait-for";
 
 const flush = () => new Promise((r) => setTimeout(r, 10));
 
@@ -19,7 +20,10 @@ async function setup(code: string, names: string[]) {
     await p.start({ watchdog: false });
     players.push(p);
   }
-  await flush();
+  await waitFor(
+    () => host.store.get().room.players.length === names.length && players.every((p) => p.store.get().me !== null),
+    `${names.length} players joined`,
+  );
   return { host, players };
 }
 
@@ -47,7 +51,7 @@ describe("host + player sessions (mock transport)", () => {
     host.startMission();
     await flush();
     players[1]!.sendAction({ type: "STEER", rudder: 1 }); // sonar can't steer
-    await flush();
+    await waitFor(() => players[1]!.store.get().lastRejection !== null, "the sonar phone's rejection");
     assert.equal(players[1]!.store.get().lastRejection?.reason, "not_permitted");
     await host.stop();
   });
