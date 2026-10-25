@@ -16,6 +16,9 @@ export interface RadioGridProps {
   flashSector?: SectorId | null;
   /** Smaller tiles for the Navigator's tight layout. */
   compact?: boolean;
+  /** versus-3: rival boat on the sector map (optional until the view always carries it). */
+  rival?: { x: number; y: number } | null;
+  rivalColor?: string;
 }
 
 /** A reading greys out over this long: the person drifts, so old fixes go stale. */
@@ -31,7 +34,14 @@ function tileColor(strength: number, freshness: number): string {
   return `rgb(${rgb.join(" ")} / ${0.35 + 0.5 * freshness})`;
 }
 
-export function RadioGrid({ view, onAction, flashSector = null, compact = false }: RadioGridProps) {
+export function RadioGrid({
+  view,
+  onAction,
+  flashSector = null,
+  compact = false,
+  rival = null,
+  rivalColor = "#ff6f61",
+}: RadioGridProps) {
   const [mode, setMode] = useState<"scan" | "pin">("scan");
   const [lastTapped, setLastTapped] = useState<SectorId | null>(null);
   const now = view.mission.elapsedMs;
@@ -77,7 +87,7 @@ export function RadioGrid({ view, onAction, flashSector = null, compact = false 
           {mode === "pin" ? "Pin mode · tap a sector" : cooling ? `Cooling ${(remaining / 1000).toFixed(1)}s` : "Tap to scan · or use Scan below"}
         </p>
       )}
-      <div className={`grid grid-cols-4 ${compact ? "gap-1" : "gap-1.5"}`}>
+      <div className={`relative grid grid-cols-4 ${compact ? "gap-1" : "gap-1.5"}`}>
         {ALL_SECTORS.map((s) => {
           const reading = latest.get(s);
           const fresh = reading ? freshness(reading) : 0;
@@ -104,6 +114,21 @@ export function RadioGrid({ view, onAction, flashSector = null, compact = false 
             </button>
           );
         })}
+        {rival && (
+          <div
+            className="pointer-events-none absolute z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
+            style={{ left: `${rival.x * 100}%`, top: `${rival.y * 100}%` }}
+            aria-hidden
+          >
+            <span
+              className="block size-0 border-x-[6px] border-b-[10px] border-x-transparent"
+              style={{ borderBottomColor: rivalColor }}
+            />
+            <span className="mt-0.5 font-mono text-[8px] font-bold uppercase tracking-wider" style={{ color: rivalColor }}>
+              Rival
+            </span>
+          </div>
+        )}
       </div>
 
       <div

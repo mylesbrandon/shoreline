@@ -42,6 +42,14 @@ function contactFade(contact: SonarContact, elapsedMs: number): number {
   return Math.max(CONTACT_FLOOR, 1 - age / CONTACT_FADE_MS);
 }
 
+/** Optional versus-only overlays (co-op SonarScope leaves these unset). */
+export interface ScopeDrawExtras {
+  rival?: Vec2 | null;
+  rivalColor?: string;
+  /** Soft pulse ring coaxing the player to tap a contact to mark. */
+  coachPulse?: boolean;
+}
+
 export function drawSonarScope(
   ctx: CanvasRenderingContext2D,
   size: number,
@@ -49,6 +57,7 @@ export function drawSonarScope(
   nowMs: number,
   ripples: readonly ScopeRipple[],
   reducedMotion: boolean,
+  extras: ScopeDrawExtras = {},
 ): void {
   const cx = size / 2;
   const cy = size / 2;
@@ -88,8 +97,12 @@ export function drawSonarScope(
   drawPingRing(ctx, view, cx, cy, pxPerUnit, well);
   drawMarkers(ctx, view.markers, boat, cx, cy, pxPerUnit, well);
   drawContacts(ctx, view.contacts, boat, cx, cy, pxPerUnit, well, elapsed, nowMs);
+  if (extras.rival) {
+    drawRivalSki(ctx, extras.rival, boat, cx, cy, pxPerUnit, well, extras.rivalColor ?? "#ff6f61", size);
+  }
   drawRipples(ctx, ripples, boat, cx, cy, pxPerUnit, nowMs);
   drawBoat(ctx, cx, cy, view.boat.heading, size);
+  if (extras.coachPulse && !reducedMotion) drawCoachPulse(ctx, cx, cy, well, nowMs);
 
   ctx.restore();
 
@@ -478,6 +491,53 @@ function drawBoat(ctx: CanvasRenderingContext2D, cx: number, cy: number, heading
   ctx.fill();
   ctx.stroke();
   ctx.restore();
+}
+
+/** Rival ski in team colour, labelled RIVAL (versus race awareness). */
+function drawRivalSki(
+  ctx: CanvasRenderingContext2D,
+  rival: Vec2,
+  boat: Vec2,
+  cx: number,
+  cy: number,
+  pxPerUnit: number,
+  well: number,
+  color: string,
+  size: number,
+): void {
+  const screen = worldToScreen(rival, boat, cx, cy, pxPerUnit);
+  const dx = screen.x - cx;
+  const dy = screen.y - cy;
+  if (dx * dx + dy * dy > well * well) return;
+  const scale = size / 360;
+  ctx.save();
+  ctx.translate(screen.x, screen.y);
+  ctx.fillStyle = color;
+  ctx.strokeStyle = C.foam;
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(0, -9 * scale);
+  ctx.lineTo(6 * scale, 7 * scale);
+  ctx.lineTo(0, 4 * scale);
+  ctx.lineTo(-6 * scale, 7 * scale);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.font = `bold ${Math.max(8, size * 0.028)}px ui-monospace, monospace`;
+  ctx.textAlign = "center";
+  ctx.fillStyle = color;
+  ctx.fillText("RIVAL", 0, 14 * scale + 8);
+  ctx.restore();
+}
+
+function drawCoachPulse(ctx: CanvasRenderingContext2D, cx: number, cy: number, well: number, nowMs: number): void {
+  const t = (nowMs % 1400) / 1400;
+  const r = well * (0.35 + 0.55 * t);
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, TAU);
+  ctx.strokeStyle = `rgba(139, 227, 239, ${0.45 * (1 - t)})`;
+  ctx.lineWidth = 3;
+  ctx.stroke();
 }
 
 function drawCardinals(ctx: CanvasRenderingContext2D, cx: number, cy: number, well: number, size: number): void {
