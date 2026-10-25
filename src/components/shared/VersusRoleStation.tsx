@@ -14,10 +14,7 @@ import { NavigatorStation } from "@/components/roles/navigator/NavigatorStation"
 
 export interface VersusRoleStationProps {
   view: VersusRoleView;
-  /**
-   * Optional only until both stations declare it; the phone always passes it.
-   * The Navigator doesn't take it yet (its hull bar reads view.sonar.boat.hull).
-   */
+  /** The phone always passes this; both stations declare it optional. */
   scoreboard?: MatchScoreboard;
   onAction: (a: PlayerAction) => void;
 }
@@ -28,7 +25,6 @@ export function VersusRoleStation(props: VersusRoleStationProps) {
     case "captain":
       return <VersusCaptainStation view={view} scoreboard={props.scoreboard} onAction={onAction} />;
     case "navigator":
-      // TODO(dev2): forward scoreboard={props.scoreboard} once NavigatorStationProps accepts it.
-      return <NavigatorStation view={view} onAction={onAction} />;
+      return <NavigatorStation view={view} scoreboard={props.scoreboard} onAction={onAction} />;
   }
 }
