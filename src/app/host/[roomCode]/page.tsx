@@ -1,10 +1,11 @@
-import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { normalizeRoomCode } from "@/lib/realtime/room-code";
-import { devLanOrigin } from "@/lib/realtime/lan-origin";
-import { HostScreen } from "./HostScreen";
 
+/**
+ * 2v2 is the only mode: an old co-op host link goes to the versus host for the same code.
+ * The co-op HostScreen stays in the repo (revert this to bring co-op back).
+ */
 export default async function HostPage({ params }: { params: Promise<{ roomCode: string }> }) {
   const { roomCode } = await params;
-  const lanOrigin = devLanOrigin((await headers()).get("host"));
-  return <HostScreen roomCode={normalizeRoomCode(roomCode)} lanOrigin={lanOrigin} />;
+  redirect(`/versus/host/${normalizeRoomCode(roomCode)}`);
 }
