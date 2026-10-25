@@ -320,3 +320,8 @@ body {
   font-family: var(--font-display);
   font-weight: 700;
 }
+
+/* "Ready" (before the clip says 3) is a word, not a digit: smaller so it fits the big screen. */
+.vs-countdown strong.vs-count-word {
+  font-size: clamp(56px, 11vw, 132px);
+}
