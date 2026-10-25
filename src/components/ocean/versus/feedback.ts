@@ -1,7 +1,20 @@
 import { VERSUS, type MatchScoreboard, type RescueEvent, type TeamId } from "@/game/versus/contract";
 
+/**
+ * When the countdown clip says each number, in ms after the countdown starts (measured from
+ * public/audio/sfx/countdown-go.mp3 at natural speed; "GO" at 3.5 s = VERSUS.countdownMs). The
+ * numbers follow the voice, so nobody sees "2" while hearing "3".
+ */
+export const COUNTDOWN_BEATS_MS = { three: 550, two: 1_600, one: 2_500 } as const;
+
 export function countdownLabel(scoreboard: MatchScoreboard): string | null {
-  if (scoreboard.phase === "countdown") return String(Math.max(1, Math.ceil(scoreboard.countdownRemainingMs / 1000)));
+  if (scoreboard.phase === "countdown") {
+    const sinceStart = VERSUS.countdownMs - scoreboard.countdownRemainingMs;
+    if (sinceStart >= COUNTDOWN_BEATS_MS.one) return "1";
+    if (sinceStart >= COUNTDOWN_BEATS_MS.two) return "2";
+    if (sinceStart >= COUNTDOWN_BEATS_MS.three) return "3";
+    return "Ready";
+  }
   if (scoreboard.phase === "active" && scoreboard.elapsedMs < 1000) return "GO!";
   return null;
 }

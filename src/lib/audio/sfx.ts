@@ -2,7 +2,6 @@
  * Phone SFX: one shared AudioContext, master gain + compressor.
  * File one-shots for countdown / crash / hurt / click; procedural for the rest.
  */
-import { VERSUS } from "@/game/versus/contract";
 import type { SfxCue } from "./cues";
 
 const SFX = {
@@ -13,8 +12,11 @@ const SFX = {
 } as const;
 
 const MAX_VOICES = 8;
-/** afinfo estimate of countdown-go.mp3; rate-scaled so GO lands at VERSUS.countdownMs. */
-const COUNTDOWN_FILE_DURATION_S = 5.9;
+/**
+ * countdown-go.mp3 plays at its natural speed: VERSUS.countdownMs (3.5 s) is set to when it says
+ * "GO", and the visual numbers follow its beats (COUNTDOWN_BEATS_MS in ocean/versus/feedback).
+ */
+const COUNTDOWN_BEATS_MS = [550, 1_600, 2_500] as const;
 
 export type PhoneSfxController = {
   unlock: () => void;
@@ -196,12 +198,10 @@ export function createPhoneSfx(): PhoneSfxController {
 
     switch (cue) {
       case "countdown_go": {
-        const rate = COUNTDOWN_FILE_DURATION_S / (VERSUS.countdownMs / 1000);
-        void playFile(SFX.countdown, { rate, gain: 0.9 }).then(() => {
+        void playFile(SFX.countdown, { rate: 1, gain: 0.9 }).then(() => {
+          // File missing: three beeps on the same beats as the clip's voice.
           if (buffers.get(SFX.countdown) === null) {
-            tone(880, 0.12, "square", 0.2);
-            window.setTimeout(() => tone(880, 0.12, "square", 0.2), 1000);
-            window.setTimeout(() => tone(880, 0.12, "square", 0.2), 2000);
+            for (const at of COUNTDOWN_BEATS_MS) window.setTimeout(() => tone(880, 0.12, "square", 0.2), at);
           }
         });
         break;
