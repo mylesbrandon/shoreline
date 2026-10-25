@@ -407,7 +407,7 @@ export function drawCurrentArrow(ctx: CanvasRenderingContext2D, size: number, cu
 }
 
 /** Sun glare beyond the lookout circle, and solid colour beyond the map edge (sand at the shore). */
-function drawGlare(ctx: CanvasRenderingContext2D, size: number, cam: Camera, lookout: number): void {
+function drawGlare(ctx: CanvasRenderingContext2D, size: number, cam: Camera, lookout: number, dark = false): void {
   const tl = toScreen(cam, { x: 0, y: 0 });
   const br = toScreen(cam, { x: 1, y: 1 });
   ctx.fillStyle = "rgba(8, 48, 74, 0.92)";
@@ -421,6 +421,17 @@ function drawGlare(ctx: CanvasRenderingContext2D, size: number, cam: Camera, loo
   }
 
   const r = lookout * cam.scale;
+  if (dark) {
+    // Versus: vision fades to dark water instead of white sun glare (playtest r4: the white wall
+    // looked unnatural). Same clear radius, a softer three-stop falloff.
+    const v = ctx.createRadialGradient(size / 2, size / 2, r * 0.75, size / 2, size / 2, r * 1.4);
+    v.addColorStop(0, "rgba(3, 16, 26, 0)");
+    v.addColorStop(0.5, "rgba(3, 16, 26, 0.6)");
+    v.addColorStop(1, "rgba(3, 16, 26, 0.95)");
+    ctx.fillStyle = v;
+    ctx.fillRect(0, 0, size, size);
+    return;
+  }
   const g = ctx.createRadialGradient(size / 2, size / 2, r * 0.8, size / 2, size / 2, r * 1.3);
   g.addColorStop(0, "rgba(255, 250, 230, 0)");
   g.addColorStop(1, "rgba(255, 250, 230, 0.93)");
@@ -496,7 +507,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, size: number, scene: Oc
   // would hide them until the instant of pickup.
   const personOverGlare = scene.versus && scene.window;
   if (scene.target && !personOverGlare) (scene.versus ? drawTarget : drawCoopTarget)(ctx, cam, scene.target, timeMs);
-  if (scene.window) drawGlare(ctx, size, cam, scene.window.lookout);
+  if (scene.window) drawGlare(ctx, size, cam, scene.window.lookout, scene.versus);
   if (scene.target && personOverGlare) drawTarget(ctx, cam, scene.target, timeMs);
   if (scene.versus) {
     for (const m of scene.markers) drawNavigatorMark(ctx, size, cam, m, scene.elapsedMs ?? -1, timeMs);
@@ -637,7 +648,11 @@ function drawNavigatorMark(ctx: CanvasRenderingContext2D, size: number, cam: Cam
     ctx.beginPath();ctx.moveTo(0,-12);ctx.lineTo(12,0);ctx.lineTo(0,12);ctx.lineTo(-12,0);ctx.closePath();ctx.fill();ctx.stroke();
     ctx.fillStyle=PALETTE.ink;ctx.font="bold 16px monospace";ctx.textAlign="center";ctx.fillText("!",0,6);
     ctx.restore();
-  } else drawMarker(ctx,cam,marker);
+  } else {
+    // Radio's guess pin is not drawn in versus: the yellow-and-red buoy read as a person (playtest
+    // r4). The Driver still gets the amber edge arrow toward it (drawEdgeArrow).
+    return;
+  }
   if(fresh && p.x>=0 && p.x<=size && p.y>=0 && p.y<=size) {
     const x=Math.max(73,Math.min(size-73,p.x));
     const y=Math.max(16,p.y-22);
