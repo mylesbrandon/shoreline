@@ -6,7 +6,7 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { createInitialState, getCaptainView, step as stepGame, versusEngine as V } from "./index";
-import { dockFor, VERSUS_RULES } from "./versus";
+import { dockFor, VERSUS_RULES, versusSignalStrength } from "./versus";
 import { SURVIVORS, survivorSpawn } from "./survivors";
 import { BOAT, CAPTAIN, MISSION, NETWORK, TARGET } from "../config";
 import {
@@ -18,6 +18,7 @@ import {
   type VersusMatchState,
 } from "../versus/contract";
 import type { GameState, HazardKind, PlayerAction, Vec2 } from "../types";
+import { ALL_SECTORS } from "../sectors";
 
 const DT = 1000 / NETWORK.simHz;
 const BLUE_CAPTAIN: PlayerTeamAssignment = { team: "blue", role: "captain" };
@@ -827,5 +828,90 @@ describe("versus: weaker currents", () => {
       assert.deepEqual(entry.current, scaled(coop.forecast[i]?.current ?? { x: NaN, y: NaN }));
     });
     assert.deepEqual(fresh().teams.red.state.weather, versus, "identical for both crews");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Playtest round 6: two hazard marks per crew, radio levels, reef formations
+// ---------------------------------------------------------------------------
+
+const RED_NAV: PlayerTeamAssignment = { team: "red", role: "navigator" };
+const hazardMarks = (m: VersusMatchState, team: TeamId) => m.teams[team].state.markers.filter((mk) => mk.kind === "hazard");
+
+describe("versus: two hazard marks per crew", () => {
+  test("place two, the third is refused, removing one frees a slot, the replacement shows", () => {
+    let m = act(active(), BLUE_NAV, { type: "MARK_HAZARD", position: { x: 0.3, y: 0.3 } });
+    m = act(m, BLUE_NAV, { type: "MARK_HAZARD", position: { x: 0.6, y: 0.3 } });
+    assert.equal(hazardMarks(m, "blue").length, VERSUS.maxHazardMarks);
+
+    const third = V.applyAction(m, BLUE_NAV, { type: "MARK_HAZARD", position: { x: 0.5, y: 0.6 } });
+    assert.equal(third.rejected, "invalid_payload");
+    assert.equal(third.match, m, "refused: unchanged");
+
+    // Tap (close to) the first mark: it is removed, and the Captain's view loses it too.
+    m = act(m, BLUE_NAV, { type: "MARK_HAZARD", position: { x: 0.3 + VERSUS.markRemoveRadius * 0.5, y: 0.3 } });
+    assert.deepEqual(hazardMarks(m, "blue").map((mk) => mk.position), [{ x: 0.6, y: 0.3 }]);
+    assert.deepEqual(V.getViews(m).blue.captain.captain.markers.filter((mk) => mk.kind === "hazard").map((mk) => mk.position), [{ x: 0.6, y: 0.3 }]);
+
+    m = act(m, BLUE_NAV, { type: "MARK_HAZARD", position: { x: 0.5, y: 0.6 } });
+    assert.equal(hazardMarks(m, "blue").length, 2);
+    assert.ok(V.getViews(m).blue.captain.captain.markers.some((mk) => mk.kind === "hazard" && mk.position.x === 0.5 && mk.position.y === 0.6));
+  });
+
+  test("a stream of marks never goes past the cap", () => {
+    let m = active();
+    for (let i = 0; i < 12; i++) {
+      m = V.applyAction(m, BLUE_NAV, { type: "MARK_HAZARD", position: { x: 0.1 + i * 0.07, y: 0.5 } }).match;
+      assert.ok(hazardMarks(m, "blue").length <= VERSUS.maxHazardMarks);
+    }
+    assert.equal(hazardMarks(m, "blue").length, VERSUS.maxHazardMarks);
+  });
+
+  test("the cap is per crew", () => {
+    let m = act(active(), BLUE_NAV, { type: "MARK_HAZARD", position: { x: 0.3, y: 0.3 } });
+    m = act(m, BLUE_NAV, { type: "MARK_HAZARD", position: { x: 0.6, y: 0.3 } });
+    m = act(m, RED_NAV, { type: "MARK_HAZARD", position: { x: 0.3, y: 0.3 } });
+    m = act(m, RED_NAV, { type: "MARK_HAZARD", position: { x: 0.7, y: 0.7 } });
+    assert.deepEqual([hazardMarks(m, "blue").length, hazardMarks(m, "red").length], [2, 2]);
+  });
+
+  test("radio pins don't use a slot, and a hazard tap never removes the pin", () => {
+    let m = act(active(), BLUE_NAV, { type: "MARK_HAZARD", position: { x: 0.3, y: 0.3 } });
+    m = act(m, BLUE_NAV, { type: "MARK_HAZARD", position: { x: 0.6, y: 0.3 } });
+    m = act(m, BLUE_NAV, { type: "MARK_TARGET", position: { x: 0.5, y: 0.5 } });
+    m = act(m, BLUE_NAV, { type: "MARK_TARGET", position: { x: 0.4, y: 0.4 } });
+    const pins = () => m.teams.blue.state.markers.filter((mk) => mk.kind === "target_guess");
+    assert.deepEqual(pins().map((p) => p.position), [{ x: 0.4, y: 0.4 }], "the pin still moves like before");
+    assert.equal(V.applyAction(m, BLUE_NAV, { type: "MARK_HAZARD", position: { x: 0.4, y: 0.4 } }).rejected, "invalid_payload");
+    assert.equal(pins().length, 1);
+    assert.equal(hazardMarks(m, "blue").length, 2);
+  });
+
+  test("bad payloads are still refused; a new match starts with no marks", () => {
+    const m = active();
+    assert.equal(V.applyAction(m, BLUE_NAV, { type: "MARK_HAZARD", position: { x: Number.NaN, y: 0.3 } }).rejected, "invalid_payload");
+    assert.equal(fresh().teams.blue.state.markers.length, 0);
+  });
+});
+
+describe("versus: radio signal levels across the board", () => {
+  test("3 bars in the person's square, then 2 / 1 / 0 rings, with most of the board lit", () => {
+    const target = { x: 0.375, y: 0.375 }; // centre of B2
+    const levels = ALL_SECTORS.map((s) => versusSignalStrength(target, s));
+    assert.equal(versusSignalStrength(target, "B2"), 1);
+    assert.ok(levels.every((l) => [0, 0.33, 0.67, 1].includes(l)));
+    assert.equal(versusSignalStrength(target, "A1"), 0.67, "diagonal neighbour: 2 bars");
+    assert.equal(versusSignalStrength(target, "D2"), 0.33, "two squares away: 1 bar");
+    assert.equal(versusSignalStrength(target, "D4"), 0.33);
+    assert.ok(levels.filter((l) => l > 0).length >= 14, `${levels.filter((l) => l > 0).length} of 16 squares read something`);
+  });
+
+  test("a scan in versus reports the level for that square", () => {
+    let m = editWorld(active(), "blue", (s) => ({ ...s, target: { ...s.target, position: { x: 0.375, y: 0.375 } } }));
+    const r = V.applyAction(m, BLUE_NAV, { type: "RADIO_SCAN", sector: "D2" });
+    m = r.match;
+    assert.equal(r.rejected, null);
+    assert.equal(m.teams.blue.state.radio.readings[0]?.strength, 0.33);
+    assert.ok(r.events.some((e) => e.type === "TEAM_GAME_EVENT" && e.event.type === "RADIO_SCANNED" && e.event.strength === 0.33));
   });
 });
