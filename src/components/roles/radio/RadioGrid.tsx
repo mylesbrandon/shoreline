@@ -18,7 +18,7 @@ export interface RadioGridProps {
   compact?: boolean;
 }
 
-/** A reading greys out over this long: the Gull drifts, so old fixes go stale. */
+/** A reading greys out over this long: the person drifts, so old fixes go stale. */
 const FADE_MS = 10_000;
 
 /** Cold blue → hot orange by strength, washed toward grey as the reading ages. */

@@ -75,7 +75,7 @@ export function SonarScope({ view, onMark, disabled = false }: SonarScopeProps) 
       ref={canvasRef}
       className="block aspect-square w-full touch-none rounded-full"
       role="img"
-      aria-label="Drone camera. Tap a hazard to mark it for the Driver."
+      aria-label="Drone radar. Land, jellies, and people. Tap to mark a hazard for the Driver."
       onPointerDown={handlePointerDown}
     />
   );

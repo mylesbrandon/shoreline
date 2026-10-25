@@ -5,12 +5,18 @@
  * Colours come from the shared canvas palette (components/ocean/palette.ts).
  */
 import { SONAR } from "@/game/config";
-import type { HazardKind, Marker, SonarContact, SonarView, Vec2 } from "@/game/types";
+import type { Marker, SonarContact, SonarView, Vec2 } from "@/game/types";
+import { hazardClass } from "@/game/versus/contract";
 import { PALETTE } from "@/components/ocean/palette";
 import { SCOPE_DISPLAY_RANGE } from "./scope-coords";
 
 // One palette for every canvas (the old ownership split is gone), so the drone camera re-themes with the rest.
 const C = PALETTE;
+/** Pink for jelly contacts — also in PALETTE.jelly; kept local for dashed stroke alpha. */
+const JELLY = C.jelly;
+const LAND_FILL = C.sand;
+const LAND_STROKE = "#c4a574";
+const PERSON_RING = C.amber;
 
 const TAU = Math.PI * 2;
 const SWEEP_MS = 3_200;
@@ -34,12 +40,6 @@ function contactFade(contact: SonarContact, elapsedMs: number): number {
   const age = elapsedMs - contact.detectedAtMs;
   if (!Number.isFinite(age) || age <= 0) return 1;
   return Math.max(CONTACT_FLOOR, 1 - age / CONTACT_FADE_MS);
-}
-
-function kindColor(kind: HazardKind): string {
-  if (kind === "rock") return C.hazard;
-  if (kind === "debris") return C.brass;
-  return C.amber;
 }
 
 export function drawSonarScope(
@@ -101,6 +101,7 @@ export function drawSonarScope(
   ctx.stroke();
 
   drawCardinals(ctx, cx, cy, well, size);
+  drawContactLegend(ctx, size);
 }
 
 function drawRangeRings(
@@ -244,60 +245,169 @@ function drawContacts(
     const fade = contactFade(contact, elapsedMs);
     const pulse = 0.7 + 0.3 * Math.sin(nowMs / 280 + contact.position.x * 20);
     if (contact.kind === "gull") {
-      drawGullContact(ctx, screen, contact.radius * pxPerUnit, fade, pulse);
+      drawPersonContact(ctx, screen, contact.radius * pxPerUnit, fade, pulse);
       continue;
     }
-    const color = kindColor(contact.kind);
-    const radius = Math.max(3.5, contact.radius * pxPerUnit * 0.22);
-
-    ctx.save();
-    ctx.globalAlpha = fade;
-    ctx.fillStyle = color;
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 10 * pulse;
-
-    ctx.beginPath();
-    ctx.arc(screen.x, screen.y, radius, 0, TAU);
-    ctx.fill();
-
-    ctx.globalAlpha = fade * 0.35;
-    ctx.shadowBlur = 0;
-    ctx.beginPath();
-    ctx.arc(screen.x, screen.y, Math.max(radius * 2.2, contact.radius * pxPerUnit * 0.45), 0, TAU);
-    ctx.fill();
-    ctx.restore();
+    // versus-2 classes: reef/rock → land (aground), debris → jelly (hull damage). Shape + colour for colour-blind.
+    if (hazardClass(contact.kind) === "jelly") {
+      drawJellyContact(ctx, screen, contact.radius * pxPerUnit, fade, pulse);
+    } else {
+      drawLandContact(ctx, screen, contact.radius * pxPerUnit, fade, contact.kind === "rock");
+    }
   }
 }
 
-/**
- * The Gull, when a ping caught it: a yellow rescue ring (the rescue radius) around a white float,
- * labelled so Sonar can call the final approach. It fades like any contact as the Gull drifts on.
- */
-function drawGullContact(ctx: CanvasRenderingContext2D, at: Vec2, ringPx: number, fade: number, pulse: number): void {
+/** LAND: filled sand/stone blob with a solid outline (unmistakable without colour alone). */
+function drawLandContact(ctx: CanvasRenderingContext2D, at: Vec2, rPx: number, fade: number, rocky: boolean): void {
+  const s = Math.max(5, rPx * 0.35);
   ctx.save();
   ctx.globalAlpha = fade;
-  ctx.strokeStyle = C.amber;
-  ctx.lineWidth = 2.5;
-  ctx.setLineDash([5, 4]);
+  ctx.translate(at.x, at.y);
   ctx.beginPath();
-  ctx.arc(at.x, at.y, Math.max(10, ringPx), 0, TAU);
+  // Irregular stone/sandbar silhouette (not a circle — distinct from jelly).
+  ctx.moveTo(-s * 1.1, -s * 0.2);
+  ctx.quadraticCurveTo(-s * 0.4, -s * 1.15, s * 0.35, -s * 0.95);
+  ctx.quadraticCurveTo(s * 1.25, -s * 0.35, s * 1.05, s * 0.45);
+  ctx.quadraticCurveTo(s * 0.2, s * 1.2, -s * 0.55, s * 0.85);
+  ctx.quadraticCurveTo(-s * 1.3, s * 0.25, -s * 1.1, -s * 0.2);
+  ctx.closePath();
+  ctx.fillStyle = rocky ? "#d4b896" : LAND_FILL;
+  ctx.fill();
+  ctx.strokeStyle = LAND_STROKE;
+  ctx.lineWidth = 2.2;
+  ctx.setLineDash([]);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** JELLY: pink body, dashed outline, gentle pulse. */
+function drawJellyContact(ctx: CanvasRenderingContext2D, at: Vec2, rPx: number, fade: number, pulse: number): void {
+  const r = Math.max(5, rPx * 0.28);
+  ctx.save();
+  ctx.globalAlpha = fade * (0.75 + 0.25 * pulse);
+  ctx.fillStyle = JELLY;
+  ctx.beginPath();
+  ctx.ellipse(at.x, at.y - r * 0.15, r * 1.15, r * 0.85, 0, 0, TAU);
+  ctx.fill();
+  // Tentacle hints (shape cue).
+  ctx.strokeStyle = JELLY;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(at.x - r * 0.5, at.y + r * 0.4);
+  ctx.quadraticCurveTo(at.x - r * 0.6, at.y + r * 1.4, at.x - r * 0.2, at.y + r * 1.6);
+  ctx.moveTo(at.x + r * 0.5, at.y + r * 0.4);
+  ctx.quadraticCurveTo(at.x + r * 0.6, at.y + r * 1.4, at.x + r * 0.2, at.y + r * 1.6);
+  ctx.stroke();
+  ctx.setLineDash([4, 3]);
+  ctx.strokeStyle = "#ffb6c8";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.ellipse(at.x, at.y - r * 0.15, r * 1.25, r * 0.95, 0, 0, TAU);
   ctx.stroke();
   ctx.setLineDash([]);
-  ctx.fillStyle = C.foam;
-  ctx.shadowColor = C.amber;
-  ctx.shadowBlur = 14 * pulse;
+  ctx.restore();
+}
+
+/** PERSON: yellow ring + stick figure, labelled PERSON (the rescued swimmer / "gull" contact). */
+function drawPersonContact(ctx: CanvasRenderingContext2D, at: Vec2, ringPx: number, fade: number, pulse: number): void {
+  const ring = Math.max(10, ringPx);
+  ctx.save();
+  ctx.globalAlpha = fade;
+  ctx.strokeStyle = PERSON_RING;
+  ctx.lineWidth = 2.5;
+  ctx.setLineDash([]);
+  ctx.shadowColor = PERSON_RING;
+  ctx.shadowBlur = 10 * pulse;
   ctx.beginPath();
-  ctx.ellipse(at.x, at.y, 7, 4.5, 0, 0, TAU);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(at.x + 6, at.y - 4, 3, 0, TAU);
-  ctx.fill();
+  ctx.arc(at.x, at.y, ring, 0, TAU);
+  ctx.stroke();
   ctx.shadowBlur = 0;
-  ctx.font = "bold 10px monospace";
+  // Stick person glyph.
+  ctx.fillStyle = C.foam;
+  ctx.strokeStyle = C.foam;
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.arc(at.x, at.y - 3, 2.4, 0, TAU);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(at.x, at.y - 0.5);
+  ctx.lineTo(at.x, at.y + 4);
+  ctx.moveTo(at.x - 3.5, at.y + 1);
+  ctx.lineTo(at.x + 3.5, at.y + 1);
+  ctx.moveTo(at.x, at.y + 4);
+  ctx.lineTo(at.x - 2.5, at.y + 7.5);
+  ctx.moveTo(at.x, at.y + 4);
+  ctx.lineTo(at.x + 2.5, at.y + 7.5);
+  ctx.stroke();
+  ctx.font = "bold 9px monospace";
   ctx.textAlign = "center";
-  ctx.fillText("SEAGULL", at.x, at.y - Math.max(10, ringPx) - 5);
+  ctx.fillStyle = PERSON_RING;
+  ctx.fillText("PERSON", at.x, at.y - ring - 4);
   ctx.textAlign = "start";
   ctx.restore();
+}
+
+function drawContactLegend(ctx: CanvasRenderingContext2D, size: number): void {
+  const font = `${Math.max(8, size * 0.028)}px ui-monospace, monospace`;
+  ctx.font = font;
+  ctx.textBaseline = "middle";
+  const y = size - size * 0.045;
+  const items: { label: string; draw: (x: number, y: number) => void }[] = [
+    {
+      label: "LAND",
+      draw: (x, y0) => {
+        ctx.fillStyle = LAND_FILL;
+        ctx.strokeStyle = LAND_STROKE;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x - 5, y0);
+        ctx.lineTo(x - 2, y0 - 4);
+        ctx.lineTo(x + 5, y0 - 2);
+        ctx.lineTo(x + 3, y0 + 4);
+        ctx.lineTo(x - 4, y0 + 3);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      },
+    },
+    {
+      label: "JELLY",
+      draw: (x, y0) => {
+        ctx.fillStyle = JELLY;
+        ctx.setLineDash([2, 2]);
+        ctx.strokeStyle = "#ffb6c8";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(x, y0, 4, 0, TAU);
+        ctx.fill();
+        ctx.stroke();
+        ctx.setLineDash([]);
+      },
+    },
+    {
+      label: "PERSON",
+      draw: (x, y0) => {
+        ctx.strokeStyle = PERSON_RING;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(x, y0, 4.5, 0, TAU);
+        ctx.stroke();
+        ctx.fillStyle = C.foam;
+        ctx.beginPath();
+        ctx.arc(x, y0 - 1, 1.2, 0, TAU);
+        ctx.fill();
+      },
+    },
+  ];
+  const gap = size * 0.28;
+  let x = size * 0.12;
+  for (const item of items) {
+    item.draw(x, y);
+    ctx.fillStyle = C.mist;
+    ctx.textAlign = "left";
+    ctx.fillText(item.label, x + 8, y);
+    x += gap;
+  }
 }
 
 function drawMarkers(
