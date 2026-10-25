@@ -163,8 +163,7 @@ function SeatCard({ slot, teammate }: { slot: PlayerTeamAssignment; teammate: st
         ))}
       </ol>
 
-      <p className="flex items-center justify-center gap-2 text-center text-base font-semibold text-amber">
-        <span className="lifeguard-flag h-3.5" aria-hidden />
+      <p className="text-center text-base font-semibold text-amber">
         Waiting for the whistle…
       </p>
     </div>

@@ -2,7 +2,7 @@
 
 /*
  * Shoreline design tokens. Beach overhaul: Gulf water panels on a sunlit sea, warm sand,
- * the red-over-yellow lifeguard flag (red = danger / brand, yellow = the one thing to press).
+ * lifeguard red (danger / brand) and buoy yellow (the one thing to press).
  * Token names are kept from the original theme so every component re-themes without edits. Use these via Tailwind classes (bg-abyss, text-teal, border-hull…)
  * or via var(--color-*) in canvas code (see components/ocean/palette.ts — keep them in sync).
  */
@@ -255,21 +255,6 @@ body {
   font-weight: 400;
 }
 
-/* The lifeguard flag: red over yellow, split on the diagonal, waving from the top edge. */
-.lifeguard-flag {
-  display: inline-block;
-  aspect-ratio: 4 / 3;
-  background: linear-gradient(135deg, var(--color-hazard) 0 50%, var(--color-amber) 50% 100%);
-  border-radius: 2px 6px 6px 2px;
-  transform-origin: left center;
-  animation: flag-wave 2.6s ease-in-out infinite;
-  box-shadow: 0 6px 14px -8px rgb(0 0 0 / 0.6);
-}
-@keyframes flag-wave {
-  0%, 100% { transform: skewY(0deg) scaleX(1); }
-  50% { transform: skewY(-4deg) scaleX(0.94); }
-}
-
 /* Beach towels: crew cards striped in the crew colour. --towel is set inline per crew. */
 .towel {
   position: relative;
@@ -308,10 +293,6 @@ body {
 .btn-buoy:active:not(:disabled) {
   transform: translateY(3px);
   box-shadow: 0 1px 0 #c99a1f, 0 6px 14px -10px rgb(0 0 0 / 0.6);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .lifeguard-flag { animation: none; }
 }
 
 /* Big screen: the ocean seen through the lifeguard tower's window — a painted sand frame. */
