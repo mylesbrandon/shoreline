@@ -88,7 +88,7 @@ export function VersusHostScreen({ roomCode, lanOrigin = null }: { roomCode: str
             <p className="rounded-xl border border-hazard/50 bg-hazard/10 p-3 text-sm text-hazard">{snap.error}</p>
           )}
           {result && (
-            <VersusResults result={result} footer={<p className="text-sm text-mist">Start a new match, then blow the whistle.</p>} />
+            <VersusResults result={result} landing={false} footer={<p className="text-sm text-mist">Start a new match, then blow the whistle.</p>} />
           )}
 
           <p className="flex items-baseline justify-between px-1 text-mist">
