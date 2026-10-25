@@ -72,7 +72,15 @@ export const VERSUS_RULES = {
   captainSonarRevealMs: 3_000,
   /** Both crews share one ocean, so each has its own dock berth this far left (blue) / right (red) of MISSION.boatStart. */
   dockOffsetX: 0.05,
+  /**
+   * Versus currents (base and every gust) are this fraction of the seeded co-op weather (playtest
+   * r5: nobody steers the current in versus, so full-strength gusts just felt like lost control).
+   * The survivor's drift follows the scaled current too. Identical for both crews.
+   */
+  currentFactor: 0.5,
 } as const;
+
+const scaleCurrent = (v: Vec2): Vec2 => ({ x: v.x * VERSUS_RULES.currentFactor, y: v.y * VERSUS_RULES.currentFactor });
 
 /** Where a team's boat starts and respawns. */
 export function dockFor(team: TeamId): Vec2 {
@@ -96,6 +104,11 @@ function createWorld(team: TeamId, seed: number, matchId: string): TeamWorld {
       ...state,
       boat: { ...state.boat, position: dockFor(team) },
       target: { ...state.target, rescueRadius: VERSUS_RULES.rescueRadius },
+      weather: {
+        ...state.weather,
+        current: scaleCurrent(state.weather.current),
+        forecast: state.weather.forecast.map((entry) => ({ ...entry, current: scaleCurrent(entry.current) })),
+      },
       mission: { ...state.mission, durationMs: VERSUS.matchDurationMs },
     },
     rescues: 0,
@@ -225,7 +238,8 @@ function stepWorld(world: TeamWorld, dtMs: number, events: MatchEvent[]): WorldS
   if (hull <= 0 || aground) {
     const cause = hull <= 0 ? "wrecked" : "aground";
     events.push({ type: "BOAT_WIPEOUT", team: world.team, atMs: elapsedMs, cause });
-    const state = respawn(r.state, world.team, cause === "wrecked" ? BOAT.startHull : hull);
+    // Either way the boat comes back from the dock repaired (playtest r5): the trip is the penalty.
+    const state = respawn(r.state, world.team, BOAT.startHull);
     return { world: { ...world, state, wipeouts: world.wipeouts + 1 }, reached: false };
   }
   return { world: { ...world, state: r.state }, reached: r.state.mission.phase === "victory" };
