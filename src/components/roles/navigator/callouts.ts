@@ -67,7 +67,7 @@ function isFresh(atMs: number, nowMs: number, windowMs = CALLOUT_FRESH_MS): bool
 }
 
 function hazardCalloutText(kind: Exclude<SonarContact["kind"], "gull">): string {
-  return hazardClass(kind) === "jelly" ? "JELLIES" : "LAND AHEAD";
+  return hazardClass(kind) === "jelly" ? "Jellyfish ahead" : "Land ahead";
 }
 
 function clockCall(boat: { position: Vec2; heading: number }, target: Vec2): { clock: number; dist: number; relative: number } {
@@ -126,7 +126,7 @@ export function navigatorCallout(sonar: SonarView, radio: RadioView, nowMs: numb
     const { clock, dist } = clockCall(sonar.boat, person.position);
     const band = distanceBand(dist);
     const text =
-      band === "CLOSE" ? `PERSON — CLOSE · ${clock} O'CLOCK` : `PERSON IN THE WATER · ${clock} O'CLOCK · ${band}`;
+      band === "CLOSE" ? `Person close, ${clock} o'clock` : `Person at ${clock} o'clock, ${band.toLowerCase()}`;
     return { kind: "survivor", clock, band, text };
   }
 
@@ -137,7 +137,7 @@ export function navigatorCallout(sonar: SonarView, radio: RadioView, nowMs: numb
       kind: "signal",
       clock,
       strength: signal.strength,
-      text: `SIGNAL ${clock} O'CLOCK`,
+      text: `Radio says ${clock} o'clock`,
     };
   }
 
@@ -151,5 +151,5 @@ export function navigatorCallout(sonar: SonarView, radio: RadioView, nowMs: numb
     };
   }
 
-  return { kind: "prompt", text: "SWEEP TO SCAN FOR OBSTACLES" };
+  return { kind: "prompt", text: "Sweep to find obstacles" };
 }

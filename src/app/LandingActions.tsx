@@ -1,7 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Swords } from "lucide-react";
 import { generateRoomCode, isValidRoomCode, normalizeRoomCode } from "@/lib/realtime/room-code";
 
 /** 2v2 "Rescue Showdown" is the game; the co-op routes only redirect here now. */
@@ -11,9 +10,9 @@ export function HostButton() {
     <button
       type="button"
       onClick={() => router.push(`/versus/host/${generateRoomCode()}`)}
-      className="btn-buoy flex h-14 items-center justify-center gap-2 rounded-2xl text-lg font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foam"
+      className="btn-buoy h-14 rounded-xl border-2 border-[#12324a] text-xl font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#12324a]"
     >
-      <Swords className="size-5" /> Host a game
+      Host a game
     </button>
   );
 }
@@ -36,12 +35,12 @@ export function JoinForm() {
         placeholder="CODE"
         aria-label="Room code"
         autoCapitalize="characters"
-        className="h-14 w-0 min-w-0 flex-1 rounded-2xl border-2 border-sand/40 bg-abyss/70 px-4 text-center font-poster text-2xl tracking-[0.3em] text-foam placeholder:text-foam/30 focus:border-amber focus:outline-none"
+        className="h-14 w-0 min-w-0 flex-1 rounded-xl border-2 border-[#12324a] bg-foam px-4 text-center font-poster text-2xl tracking-[0.3em] text-[#12324a] placeholder:text-[#12324a]/30 focus:outline-2 focus:outline-offset-2 focus:outline-[#12324a]"
       />
       <button
         type="submit"
         disabled={!valid}
-        className="h-14 rounded-2xl bg-teal px-5 text-lg font-bold text-abyss transition-opacity disabled:opacity-35 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foam"
+        className="h-14 rounded-xl bg-[#12324a] px-5 text-lg font-bold text-foam transition-opacity disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#12324a]"
       >
         Join
       </button>

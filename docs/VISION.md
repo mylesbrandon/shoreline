@@ -1,6 +1,6 @@
 # Vision
 
-**Stormline** — *Four players. Four perspectives. One rescue mission.*
+**Shoreline** — *Four players. Four perspectives. One rescue mission.*
 
 ## The pitch
 
@@ -8,7 +8,7 @@ A storm has hit the coast and a small vessel, the *Gull*, is adrift. Your crew o
 
 ## Experience, in order
 
-1. The host opens Stormline on a laptop connected to a big screen and clicks **Host a rescue**.
+1. The host opens Shoreline on a laptop connected to a big screen and clicks **Host a rescue**.
 2. A room code and QR code appear. Four people scan it with their phones.
 3. Each phone flips to a role card: Captain, Sonar, Weather, Radio.
 4. Host presses **Start**. A 90-second countdown begins on every screen at once.

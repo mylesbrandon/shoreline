@@ -83,8 +83,8 @@ export function RadioGrid({
     <div className="grid gap-2">
       {!compact && <p className="font-mono text-xs text-mist">{hint}</p>}
       {compact && (
-        <p className="font-mono text-[10px] uppercase tracking-wider text-mist">
-          {mode === "pin" ? "Pin mode · tap a sector" : cooling ? `Cooling ${(remaining / 1000).toFixed(1)}s` : "Tap to scan · or use Scan below"}
+        <p className="text-sm text-mist">
+          {mode === "pin" ? "Tap a square to move your pin." : cooling ? `Scanning, ready in ${(remaining / 1000).toFixed(1)} s` : "Tap a square to scan it, or press Scan."}
         </p>
       )}
       <div className={`relative grid grid-cols-4 ${compact ? "gap-1" : "gap-1.5"}`}>
@@ -101,7 +101,7 @@ export function RadioGrid({
               disabled={blocked}
               onClick={() => tap(s)}
               aria-label={`${s}${reading ? `, signal ${Math.round(reading.strength * 3)} of 3` : ""}${s === pinSector ? ", pinned" : ""}`}
-              className={`relative flex aspect-square ${tileMin} flex-col items-center justify-center gap-0.5 rounded-xl border font-mono text-xs transition active:scale-95 ${
+              className={`relative flex aspect-square ${tileMin} flex-col items-center justify-center gap-0.5 rounded-xl border text-sm font-semibold transition active:scale-95 ${
                 mode === "pin" ? "border-brass" : "border-hull"
               } ${blocked && !scanning ? "opacity-50" : ""} ${isHot ? "animate-pulse" : ""} bg-navy`}
               style={reading ? { backgroundColor: tileColor(reading.strength, fresh) } : undefined}
@@ -124,7 +124,7 @@ export function RadioGrid({
               className="block size-0 border-x-[6px] border-b-[10px] border-x-transparent"
               style={{ borderBottomColor: rivalColor }}
             />
-            <span className="mt-0.5 font-mono text-[8px] font-bold uppercase tracking-wider" style={{ color: rivalColor }}>
+            <span className="mt-0.5 text-[11px] font-bold" style={{ color: rivalColor }}>
               Rival
             </span>
           </div>
@@ -134,7 +134,7 @@ export function RadioGrid({
       <div
         role="group"
         aria-label="Tap mode"
-        className={`grid grid-cols-2 overflow-hidden rounded-xl border border-hull font-display font-semibold uppercase tracking-[0.2em] ${
+        className={`grid grid-cols-2 overflow-hidden rounded-xl border border-hull font-display font-bold ${
           compact ? "h-12 text-base" : "h-14 text-lg"
         }`}
       >
@@ -147,7 +147,7 @@ export function RadioGrid({
             disabled={!active}
             className={mode === m ? "bg-amber text-abyss" : "bg-navy text-mist"}
           >
-            {m}
+            {m === "scan" ? "Scan" : "Pin"}
           </button>
         ))}
       </div>

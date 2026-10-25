@@ -120,7 +120,7 @@ describe("SupabaseRoomTransport lifecycle (fake client)", () => {
     t.send(msg);
     await new Promise((r) => setTimeout(r, 5));
     assert.equal(delivered.length, 1);
-    assert.equal(delivered[0]?.topic, "realtime:stormline:room:WXYZ");
+    assert.equal(delivered[0]?.topic, "realtime:shoreline:room:WXYZ");
     await t.disconnect();
     await t.disconnect();
   });

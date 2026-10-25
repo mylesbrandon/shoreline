@@ -1,5 +1,5 @@
 /**
- * STORMLINE SHARED CONTRACTS
+ * SHORELINE SHARED CONTRACTS
  * ==========================
  * Every module (engine, realtime, captain UI, specialist UI) depends on these types.
  * Changing this file requires agreement from all four developers — see docs/CONTRACTS.md.

@@ -14,9 +14,9 @@
  */
 import { newId } from "./protocol";
 
-const lastKey = (roomCode: string) => `stormline:${roomCode}:player`;
-const tabKey = (roomCode: string) => `stormline:${roomCode}:player-tab`;
-const leaseKey = (roomCode: string, playerId: string) => `stormline:${roomCode}:lease:${playerId}`;
+const lastKey = (roomCode: string) => `shoreline:${roomCode}:player`;
+const tabKey = (roomCode: string) => `shoreline:${roomCode}:player-tab`;
+const leaseKey = (roomCode: string, playerId: string) => `shoreline:${roomCode}:lease:${playerId}`;
 
 const LEASE_REFRESH_MS = 2_000;
 const LEASE_TTL_MS = 6_000;

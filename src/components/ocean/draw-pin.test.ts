@@ -30,11 +30,11 @@ const scene = (window: OceanScene["window"]): OceanScene => ({ boat, hazards: []
 test("the radio guess shows as a labelled ring inside the versus Driver window", () => {
   const r = recordingContext();
   drawScene(r.ctx, 300, scene({ span: 0.18, lookout: 0.05 }), 0);
-  assert.ok(r.texts.includes("RADIO GUESS"));
+  assert.ok(r.texts.includes("Radio guess"));
 });
 
 test("the big screen (no window) does not draw the radio guess", () => {
   const r = recordingContext();
   drawScene(r.ctx, 300, scene(undefined), 0);
-  assert.ok(!r.texts.includes("RADIO GUESS"));
+  assert.ok(!r.texts.includes("Radio guess"));
 });

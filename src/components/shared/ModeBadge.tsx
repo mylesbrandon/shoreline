@@ -4,20 +4,17 @@
  */
 export type DataMode = "mock" | "preview" | "live";
 
-const STYLES: Record<DataMode, { label: string; className: string }> = {
-  mock: { label: "Mock mode · single device · not synced", className: "border-amber/60 text-amber bg-amber/10" },
-  preview: { label: "Station preview · mock data", className: "border-amber/60 text-amber bg-amber/10" },
-  live: { label: "Live · Supabase Realtime", className: "border-teal/50 text-teal bg-teal/10" },
+const LABELS: Record<Exclude<DataMode, "live">, string> = {
+  mock: "Practice mode: this device only, nothing syncs",
+  preview: "Practice data",
 };
 
+/** Live play is the normal case, so it gets no label; only practice data is called out. */
 export function ModeBadge({ mode, className = "" }: { mode: DataMode; className?: string }) {
-  const s = STYLES[mode];
+  if (mode === "live") return null;
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-[11px] uppercase tracking-wider ${s.className} ${className}`}
-    >
-      <span className="size-1.5 rounded-full bg-current" />
-      {s.label}
+    <span className={`inline-block w-fit rounded-[4px] bg-amber px-2 py-0.5 text-sm font-semibold text-[#12324a] ${className}`}>
+      {LABELS[mode]}
     </span>
   );
 }

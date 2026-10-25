@@ -1,7 +1,7 @@
 /**
  * SUPABASE REALTIME TRANSPORT. OWNER: Developer 2.
  *
- * One public Realtime channel per room (`stormline:room:<CODE>`), one broadcast event ("msg")
+ * One public Realtime channel per room (`shoreline:room:<CODE>`), one broadcast event ("msg")
  * carrying a NetworkMessage, and Presence keyed by playerId. No tables, no auth.
  * See docs/CONTRACTS.md §5 and docs/DEPLOY.md "Supabase Realtime".
  *
@@ -118,7 +118,7 @@ export class SupabaseRoomTransport implements RoomTransport {
             // Re-track on every (re)subscribe so presence survives automatic rejoins.
             const result = await channel.track(me);
             if (this.channel !== channel) return; // disconnected while tracking
-            if (result !== "ok") console.warn(`[stormline] presence track returned "${result}"`);
+            if (result !== "ok") console.warn(`[shoreline] presence track returned "${result}"`);
             this.emitStatus("connected");
             if (!settled) {
               settled = true;
@@ -187,7 +187,7 @@ export class SupabaseRoomTransport implements RoomTransport {
     // silently fall back to an HTTP request, which we don't want for 10 Hz traffic.
     if (!this.channel || !this.joined) return;
     this.channel.send({ type: "broadcast", event: EVENT, payload: message }).catch((e: unknown) => {
-      console.warn("[stormline] broadcast failed", e);
+      console.warn("[shoreline] broadcast failed", e);
     });
   }
 

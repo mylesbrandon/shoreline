@@ -85,7 +85,7 @@ Because steering/throttle are "set to value" (not "nudge by"), dropping an old o
 
 ## 5. Network protocol
 
-One Supabase Realtime channel per room: `stormline:room:<CODE>`. One broadcast event name: `"msg"`. Payload is always a `NetworkMessage`; route on `message.type`. `broadcast.self = false`.
+One Supabase Realtime channel per room: `shoreline:room:<CODE>`. One broadcast event name: `"msg"`. Payload is always a `NetworkMessage`; route on `message.type`. `broadcast.self = false`.
 
 | `type` | Direction | When | Payload |
 |---|---|---|---|

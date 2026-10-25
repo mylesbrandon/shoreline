@@ -21,7 +21,7 @@ export function createSupabaseClient(): SupabaseClient {
   clientCount += 1;
   return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     // Unique storageKey avoids the "Multiple GoTrueClient instances" warning; auth is unused anyway.
-    auth: { persistSession: false, autoRefreshToken: false, storageKey: `stormline-rt-${clientCount}` },
+    auth: { persistSession: false, autoRefreshToken: false, storageKey: `shoreline-rt-${clientCount}` },
     realtime: { params: { eventsPerSecond: NETWORK.eventsPerSecond } },
   });
 }

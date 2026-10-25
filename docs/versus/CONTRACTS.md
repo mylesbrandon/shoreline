@@ -116,7 +116,7 @@ interface SpectatorMatchView { role: "spectator"; matchId; tick; scoreboard; tea
 
 ## 6. Network protocol
 
-Everything goes over the same channel (`stormline:room:<CODE>`), event `"msg"`, `PROTOCOL_VERSION` 1.
+Everything goes over the same channel (`shoreline:room:<CODE>`), event `"msg"`, `PROTOCOL_VERSION` 1.
 
 | Message | Direction | When |
 |---|---|---|

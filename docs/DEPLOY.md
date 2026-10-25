@@ -7,8 +7,8 @@ Owner: Developer 2.
 Requirements: Node.js ≥ 20.9 (LTS 22 recommended), npm, git.
 
 ```bash
-git clone https://github.com/<OWNER>/stormline.git
-cd stormline
+git clone https://github.com/<OWNER>/shoreline.git
+cd shoreline
 npm install
 npm run dev            # http://localhost:3000 — mock mode until Supabase is configured
 ```
@@ -28,7 +28,7 @@ Scripts:
 
 ## Supabase Realtime
 
-Stormline uses **only** Realtime Broadcast and Presence. No tables, no auth, no SQL.
+Shoreline uses **only** Realtime Broadcast and Presence. No tables, no auth, no SQL.
 
 1. Create a free project at <https://supabase.com/dashboard> (any region near Texas, e.g. `us-east-1`).
 2. Project Settings → API (or the **Connect** button): copy the **Project URL** and the **anon** public key (or the newer **publishable** key, `sb_publishable_…`).
@@ -46,7 +46,7 @@ Never use the `service_role` / secret key in this app — every `NEXT_PUBLIC_*` 
 
 ### How the transport works (`src/lib/realtime/supabase-transport.ts`)
 
-- Channel `stormline:room:<CODE>`, one broadcast event `"msg"` carrying a `NetworkMessage`, `broadcast.self = false` (senders never get their own message), presence keyed by `playerId`.
+- Channel `shoreline:room:<CODE>`, one broadcast event `"msg"` carrying a `NetworkMessage`, `broadcast.self = false` (senders never get their own message), presence keyed by `playerId`.
 - Status mapping: `SUBSCRIBED` → `connected`, `CHANNEL_ERROR` / `TIMED_OUT` → `error`, `CLOSED` → `disconnected`. supabase-js rejoins automatically after a network blip; every rejoin re-tracks presence and emits `connected` again, which makes `PlayerSession` re-send `hello`.
 - **One Supabase client per transport.** supabase-js ≥ 2.11 hands back the *same* channel object if you call `channel()` twice with the same topic on one client, so two transports for one room in the same tab (React StrictMode double-mounts effects in dev) would tear down each other's channel. `createTransport()` therefore gives each transport its own client (`createSupabaseClient()`).
 - `send()` is dropped until the channel is joined. Otherwise supabase-js silently falls back to an HTTP POST per message.
@@ -76,25 +76,25 @@ Repository owner (once):
 
 ```bash
 gh auth login                                   # if needed
-cd stormline
-gh repo create stormline --private --source=. --remote=origin --push
+cd shoreline
+gh repo create shoreline --private --source=. --remote=origin --push
 gh repo edit --add-topic hackathon,howdyhack
 # invite teammates:
-gh api -X PUT repos/<OWNER>/stormline/collaborators/<teammate-username> -f permission=push
+gh api -X PUT repos/<OWNER>/shoreline/collaborators/<teammate-username> -f permission=push
 ```
 
-Without `gh`: create an empty private repo named `stormline` on github.com (no README/license), then:
+Without `gh`: create an empty private repo named `shoreline` on github.com (no README/license), then:
 
 ```bash
-git remote add origin https://github.com/<OWNER>/stormline.git
+git remote add origin https://github.com/<OWNER>/shoreline.git
 git push -u origin main
 ```
 
 Each teammate:
 
 ```bash
-git clone https://github.com/<OWNER>/stormline.git
-cd stormline
+git clone https://github.com/<OWNER>/shoreline.git
+cd shoreline
 npm install
 git checkout -b feat/engine          # or feat/realtime, feat/captain-ui, feat/specialist-ui
 git push -u origin feat/engine
@@ -104,7 +104,7 @@ Recommended: protect `main` (Settings → Branches → require PR + passing chec
 
 ## Vercel
 
-1. <https://vercel.com/new> → Import the `stormline` GitHub repo. Framework: Next.js (auto-detected). No build settings to change.
+1. <https://vercel.com/new> → Import the `shoreline` GitHub repo. Framework: Next.js (auto-detected). No build settings to change.
 2. Environment Variables (Production + Preview): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 3. Deploy. Every push to `main` deploys production; every PR gets a preview URL.
 4. Changing env vars requires a redeploy (they're inlined at build time).

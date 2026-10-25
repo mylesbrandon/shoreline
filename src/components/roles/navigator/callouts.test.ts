@@ -85,8 +85,8 @@ describe("navigatorCallout priority", () => {
     });
     const call = navigatorCallout(sonar, radio, now);
     assert.equal(call.kind, "survivor");
-    assert.match(call.text, /PERSON/);
-    assert.match(call.text, /12 O'CLOCK/);
+    assert.match(call.text, /Person/);
+    assert.match(call.text, /12 o'clock/);
   });
 
   test("strong radio beats hazard warning when no gull", () => {
@@ -101,7 +101,7 @@ describe("navigatorCallout priority", () => {
     });
     const call = navigatorCallout(sonar, radio, now);
     assert.equal(call.kind, "signal");
-    assert.match(call.text, /SIGNAL \d+ O'CLOCK/);
+    assert.match(call.text, /Radio says \d+ o'clock/);
   });
 
   test("land ahead when no person and no strong signal", () => {
@@ -112,7 +112,7 @@ describe("navigatorCallout priority", () => {
     const radio = radioAt({ boat, readings: [{ sector: "A3", strength: 0.2, atMs: now - 100 }] });
     const call = navigatorCallout(sonar, radio, now);
     assert.equal(call.kind, "hazard");
-    assert.equal(call.text, "LAND AHEAD");
+    assert.equal(call.text, "Land ahead");
   });
 
   test("jellyfish ahead shouts JELLIES", () => {
@@ -123,7 +123,7 @@ describe("navigatorCallout priority", () => {
     const radio = radioAt({ boat, readings: [] });
     const call = navigatorCallout(sonar, radio, now);
     assert.equal(call.kind, "hazard");
-    assert.equal(call.text, "JELLIES");
+    assert.equal(call.text, "Jellyfish ahead");
   });
 
   test("rock ahead is also LAND AHEAD", () => {
@@ -131,7 +131,7 @@ describe("navigatorCallout priority", () => {
       boat,
       contacts: [{ hazardId: "r1", position: { x: 0.5, y: 0.42 }, radius: 0.03, kind: "rock", detectedAtMs: now - 200 }],
     });
-    assert.equal(navigatorCallout(sonar, radioAt({ boat }), now).text, "LAND AHEAD");
+    assert.equal(navigatorCallout(sonar, radioAt({ boat }), now).text, "Land ahead");
   });
 
   test("stale gull is ignored → prompt if nothing else", () => {
@@ -150,7 +150,7 @@ describe("navigatorCallout priority", () => {
     const radio = radioAt({ boat, readings: [] });
     const call = navigatorCallout(sonar, radio, now);
     assert.equal(call.kind, "prompt");
-    assert.equal(call.text, "SWEEP TO SCAN FOR OBSTACLES");
+    assert.equal(call.text, "Sweep to find obstacles");
   });
 
   test("weak radio does not produce a signal callout", () => {
@@ -159,7 +159,7 @@ describe("navigatorCallout priority", () => {
     assert.equal(navigatorCallout(sonar, radio, now).kind, "prompt");
   });
 
-  test("person due east is CLOSE with PERSON wording", () => {
+  test("person due east is CLOSE with Person close wording", () => {
     const sonar = sonarAt({
       boat,
       contacts: [{ hazardId: "gull", position: { x: 0.55, y: 0.5 }, radius: 0.04, kind: "gull", detectedAtMs: now }],
@@ -169,7 +169,7 @@ describe("navigatorCallout priority", () => {
     if (call.kind === "survivor") {
       assert.equal(call.clock, 3);
       assert.equal(call.band, "CLOSE");
-      assert.match(call.text, /PERSON — CLOSE/);
+      assert.match(call.text, /Person close/);
     }
   });
 });

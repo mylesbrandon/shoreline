@@ -1,5 +1,5 @@
 /**
- * STORMLINE: RESCUE SHOWDOWN — SHARED 2v2 CONTRACT (versus-3)
+ * SHORELINE: RESCUE SHOWDOWN — SHARED 2v2 CONTRACT (versus-3)
  * ===========================================================
  * Frozen for parallel work. Every versus module (engine, host/player sessions, spectator UI,
  * navigator UI) depends on these types. Changes go through Developer 2 (integration lead) and
