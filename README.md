@@ -13,7 +13,7 @@ Built in ~24 hours for HowdyHack 2026 by four developers.
 
 ## Quick start
 
-- **Play:** `<production URL>`. You need one laptop and four phones on any network.
+- **Play:** <https://stormline-kohl.vercel.app>. You need one laptop and four phones on any network.
 - **Run locally:**
 
   ```bash
