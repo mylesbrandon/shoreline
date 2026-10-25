@@ -40,7 +40,7 @@ export function RadioGrid({
   flashSector = null,
   compact = false,
   rival = null,
-  rivalColor = "#ff6f61",
+  rivalColor = "#ff5a4e",
 }: RadioGridProps) {
   const [mode, setMode] = useState<"scan" | "pin">("scan");
   const [lastTapped, setLastTapped] = useState<SectorId | null>(null);

@@ -101,7 +101,7 @@ export function drawSonarScope(
   drawMarkers(ctx, view.markers, boat, cx, cy, pxPerUnit, well);
   drawContacts(ctx, view.contacts, boat, cx, cy, pxPerUnit, well, elapsed, nowMs);
   if (extras.rival) {
-    drawRivalSki(ctx, extras.rival, boat, cx, cy, pxPerUnit, well, extras.rivalColor ?? "#ff6f61", size);
+    drawRivalSki(ctx, extras.rival, boat, cx, cy, pxPerUnit, well, extras.rivalColor ?? "#ff5a4e", size);
   }
   drawRipples(ctx, ripples, boat, cx, cy, pxPerUnit, nowMs);
   drawBoat(ctx, cx, cy, view.boat.heading, size);

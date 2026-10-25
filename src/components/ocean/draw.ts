@@ -701,7 +701,7 @@ function drawDock(ctx: CanvasRenderingContext2D, size: number, cam: Camera): voi
     for(let y=berth.y;y<size;y+=6) {ctx.beginPath();ctx.moveTo(berth.x-width,y);ctx.lineTo(berth.x+width,y);ctx.stroke();}
   }
   ctx.fillStyle="#b89160";ctx.fillRect(left.x-width,shore,right.x-left.x+width*2,Math.max(8,size*.02));
-  for(const [berth,colour,label] of [[left,"#5aa9ff","BLUE"],[right,"#ff6f61","RED"]] as const) {
+  for(const [berth,colour,label] of [[left,"#46b3ff","BLUE"],[right,"#ff5a4e","RED"]] as const) {
     ctx.fillStyle=colour;ctx.fillRect(berth.x-width,berth.y,width*2,Math.max(4,size*.012));
     ctx.font="bold 8px monospace";ctx.textAlign="center";ctx.strokeStyle=PALETTE.ink;ctx.lineWidth=3;
     ctx.strokeText(label,berth.x,berth.y-5);ctx.fillText(label,berth.x,berth.y-5);
