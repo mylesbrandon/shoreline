@@ -38,7 +38,7 @@ export default function Home() {
       </section>
 
       <section className="grid gap-4">
-        <h2 className="font-mono text-xs uppercase tracking-[0.25em] text-mist">Tower 4&apos;s crew · preview each station with mock data</h2>
+        <h2 className="font-mono text-xs uppercase tracking-[0.25em] text-mist">The co-op crew · preview each station with mock data</h2>
         <div className="grid gap-3 sm:grid-cols-4">
           {ROLES.map((role) => {
             const info = ROLE_INFO[role];

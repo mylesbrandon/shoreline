@@ -16,7 +16,7 @@ import { ConnectionBanner } from "@/components/shared/ConnectionBanner";
 import { ModeBadge } from "@/components/shared/ModeBadge";
 import { Wordmark } from "@/components/shared/Wordmark";
 import { VersusRoleStation } from "@/components/shared/VersusRoleStation";
-import { TEAM_INFO, VERSUS_ROLE_INFO } from "@/components/shared/teams";
+import { TEAM_INFO, VERSUS_ROLE_INFO, VERSUS_ROLE_STEPS } from "@/components/shared/teams";
 import { MatchScoreStrip } from "@/components/ocean/versus/MatchScoreStrip";
 import { VersusResults } from "@/components/ocean/versus/VersusResults";
 
@@ -115,18 +115,45 @@ function MockNotice() {
   );
 }
 
-/** Seat card shown in lobby/briefing, before the whistle. */
-function SeatCard({ slot }: { slot: PlayerTeamAssignment }) {
+/**
+ * Seat card shown in lobby/briefing, before the whistle. This is the only moment a new player has
+ * to read anything, so it carries the whole how-to-play for their seat: who they are, who they're
+ * with, and the numbered steps. Left-aligned list, no scroll at 375 px.
+ */
+function SeatCard({ slot, teammate }: { slot: PlayerTeamAssignment; teammate: string | null }) {
   const team = TEAM_INFO[slot.team];
   const role = VERSUS_ROLE_INFO[slot.role];
   const Icon = role.icon;
+  const steps = VERSUS_ROLE_STEPS[slot.role];
   return (
-    <div className={`instrument grid justify-items-center gap-3 rounded-2xl border-t-4 p-8 text-center ${team.border}`}>
-      <p className={`font-mono text-xs uppercase tracking-[0.3em] ${team.text}`}>{team.label}</p>
-      <Icon className={`size-14 ${team.text}`} />
-      <h1 className={`text-4xl font-bold ${team.text}`}>{role.label}</h1>
-      <p className="text-mist">{role.brief}</p>
-      <p className="font-mono text-xs text-hull">Waiting for the whistle…</p>
+    <div className={`instrument grid gap-4 rounded-2xl border-t-4 p-5 ${team.border}`}>
+      <div className="grid justify-items-center gap-1 text-center">
+        <p className={`font-mono text-xs uppercase tracking-[0.3em] ${team.text}`}>{team.label}</p>
+        <Icon className={`size-12 ${team.text}`} />
+        <h1 className={`text-3xl font-bold ${team.text}`}>{role.label}</h1>
+        <p className="text-sm text-mist">{role.brief}</p>
+        {teammate && (
+          <p className="font-mono text-xs text-mist">
+            with <span className={team.text}>{teammate}</span>
+          </p>
+        )}
+      </div>
+
+      <ol className="grid gap-2.5">
+        {steps.map((step, i) => (
+          <li key={step} className="flex gap-3">
+            <span
+              className={`mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full font-mono text-xs font-semibold text-abyss ${team.bg}`}
+              aria-hidden
+            >
+              {i + 1}
+            </span>
+            <span className="text-sm leading-snug text-foam">{step}</span>
+          </li>
+        ))}
+      </ol>
+
+      <p className="text-center font-mono text-xs text-hull">Waiting for the whistle…</p>
     </div>
   );
 }
@@ -145,6 +172,10 @@ function SeatedView({ session }: { session: VersusPlayerSession }) {
 
   const banner = <ConnectionBanner status={snap.status} error={snap.error} />;
   const slot = snap.me?.slot ?? null;
+  // The other seat on my team, so the wait screen can name who I'm shouting at.
+  const teammate =
+    snap.room?.players.find((p) => p.id !== snap.me?.id && p.slot !== null && slot !== null && p.slot.team === slot.team)
+      ?.name ?? null;
 
   // Not seated: either the host hasn't listed us yet, or all four seats are taken.
   if (!slot) {
@@ -183,7 +214,7 @@ function SeatedView({ session }: { session: VersusPlayerSession }) {
     return (
       <div className="grid gap-3">
         {banner}
-        <SeatCard slot={slot} />
+        <SeatCard slot={slot} teammate={teammate} />
       </div>
     );
   }
