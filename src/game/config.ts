@@ -1,5 +1,5 @@
 /**
- * STORMLINE SHARED TUNING CONSTANTS
+ * SHORELINE SHARED TUNING CONSTANTS
  * =================================
  * Shared contract (requires team agreement to change semantics; tweaking numbers during
  * playtesting is fine — just tell the team in chat).
@@ -92,6 +92,6 @@ export const NETWORK = {
 export const ROOM = {
   codeLength: 4,
   maxPlayers: 4,
-  /** Broadcast channel name prefix. Full name: `stormline:room:<CODE>`. */
-  channelPrefix: "stormline:room:",
+  /** Broadcast channel name prefix. Full name: `shoreline:room:<CODE>`. */
+  channelPrefix: "shoreline:room:",
 } as const;

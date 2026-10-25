@@ -1,4 +1,4 @@
-# Red Flag Day
+# Shoreline
 
 The rip is pulling swimmers past the buoys. Two lifeguard crews of two race to bring them in. Each crew has a **Driver**, who steers a rescue jet ski but can only see a small circle around it, and a **Navigator**, who works a drone (sweeps that reveal sandbars, rocks and jellyfish, plus up to two hazard marks on the Driver's screen) and the beach radio (scans that say how warm each square is, and a pin for their best guess). Both crews race for the **same** swimmer on the **same** map. Whoever reaches them first scores, and the next swimmer appears for both. Most rescues in 120 seconds wins.
 
@@ -55,7 +55,7 @@ Also in the build: beach-themed UI; host music plus per-phone sound effects and 
 | `src/app/versus/` | Host (`/versus/host/[code]`), phone (`/versus/room/[code]`) and preview routes |
 | `src/components/` | Driver, Navigator, big-screen and shared UI |
 
-The original four-role co-op mode ("Stormline": Captain, Sonar, Weather, Radio) is still in the code as **legacy**. Its routes redirect to 2v2, so it isn't reachable from the site.
+The original four-role co-op mode (Captain, Sonar, Weather, Radio) is still in the code as **legacy**. Its routes redirect to 2v2, so it isn't reachable from the site.
 
 ## Tech
 

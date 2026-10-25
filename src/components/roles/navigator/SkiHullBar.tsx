@@ -9,8 +9,8 @@ export function SkiHullBar({ hull }: { hull: number }) {
   const critical = pct <= 25;
   return (
     <div className="grid gap-1" aria-label={`Ski hull ${pct} percent`}>
-      <div className="flex items-baseline justify-between gap-2 font-mono text-[10px] uppercase tracking-[0.18em]">
-        <span className="text-mist">Ski hull — jellies only</span>
+      <div className="flex items-baseline justify-between gap-2 text-sm font-semibold">
+        <span className="text-mist">Hull (only jellyfish damage it)</span>
         <span className={critical ? "text-hazard" : "text-teal"}>{pct}%</span>
       </div>
       <div className="h-2.5 overflow-hidden rounded-full border border-hull bg-abyss">

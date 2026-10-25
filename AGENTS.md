@@ -1,6 +1,6 @@
 # AGENTS.md — rules for coding agents (Codex, Claude Code, Copilot, Cursor…)
 
-Stormline is a four-player cooperative ocean-rescue browser game built in ~24 hours for HowdyHack 2026 by four developers working in parallel. These rules are the same for every agent and every human. `CLAUDE.md` points here; if the two ever disagree, **this file wins** — fix the other one.
+Shoreline is a four-player cooperative ocean-rescue browser game built in ~24 hours for HowdyHack 2026 by four developers working in parallel. These rules are the same for every agent and every human. `CLAUDE.md` points here; if the two ever disagree, **this file wins** — fix the other one.
 
 ## Before you change anything
 

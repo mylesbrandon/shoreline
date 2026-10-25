@@ -53,35 +53,36 @@ export function VersusPreview({ target, team }: { target: VersusPreviewTarget; t
           <Link
             key={v}
             href={`/versus/preview?view=${v}&team=${team}`}
-            className={`rounded-full border px-3 py-1 font-mono text-xs uppercase tracking-wider ${
-              v === target ? "border-teal text-teal" : "border-hull text-mist"
+            className={`rounded-md border px-3 py-1 text-sm font-semibold ${
+              v === target ? "border-sand bg-sand text-[#12324a]" : "border-hull text-mist"
             }`}
           >
-            {v === "captain" || v === "navigator" ? VERSUS_ROLE_INFO[v].label : v}
+            {v === "captain" || v === "navigator" ? VERSUS_ROLE_INFO[v].label : v === "spectator" ? "Big screen" : "Results"}
           </Link>
         ))}
         {TEAMS.map((tm) => (
           <Link
             key={tm}
             href={`/versus/preview?view=${target}&team=${tm}`}
-            className={`rounded-full border px-3 py-1 font-mono text-xs uppercase tracking-wider ${
+            className={`rounded-md border px-3 py-1 text-sm font-semibold ${
               tm === team ? `${TEAM_INFO[tm].border} ${TEAM_INFO[tm].text}` : "border-hull text-mist"
             }`}
           >
-            {tm}
+            {TEAM_INFO[tm].label}
           </Link>
         ))}
       </nav>
 
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-sm text-mist">Jump to</span>
         {JUMPS.map(([label, atMs]) => (
           <button
             key={label}
             type="button"
             onClick={() => setOffset(atMs - elapsed)}
-            className="rounded-lg border border-hull px-3 py-1.5 font-mono text-xs uppercase tracking-wider text-mist"
+            className="rounded-md border border-hull px-3 py-1 text-sm text-mist"
           >
-            Jump: {label}
+            {label}
           </button>
         ))}
       </div>
@@ -92,22 +93,22 @@ export function VersusPreview({ target, team }: { target: VersusPreviewTarget; t
         <>
           <MatchScoreStrip scoreboard={scoreboard} team={team} />
           <h1 className={`text-2xl font-semibold ${TEAM_INFO[team].text}`}>
-            {TEAM_INFO[team].label} · {VERSUS_ROLE_INFO[seat].label}
+            {TEAM_INFO[team].label}&apos;s {VERSUS_ROLE_INFO[seat].label}
           </h1>
           <VersusRoleStation view={mockVersusViewsAt(t)[team][seat]} onAction={onAction} />
         </>
       )}
 
-      <label className="flex items-center gap-2 font-mono text-xs text-mist">
+      <label className="flex items-center gap-2 text-sm text-mist">
         <input type="checkbox" checked={animate} onChange={(e) => setAnimate(e.target.checked)} />
         Animate scripted match
       </label>
 
       {seat && (
         <section className="instrument rounded-xl p-3">
-          <h2 className="mb-1 font-mono text-[11px] uppercase tracking-[0.25em] text-mist">Emitted actions (not sent anywhere)</h2>
+          <h2 className="mb-1 text-sm font-semibold text-mist">Actions this screen sent (practice: they go nowhere)</h2>
           {log.length === 0 ? (
-            <p className="font-mono text-xs text-hull">Interact with the station…</p>
+            <p className="text-sm text-mist">Tap the controls above and each action shows up here.</p>
           ) : (
             <ul className="grid gap-0.5 font-mono text-xs text-cyan">
               {log.map((a, i) => (

@@ -1,14 +1,14 @@
-# Developer 3: Spectator screen, scoreboard & competitive UX (Stormline: Rescue Showdown, contract versus-1)
+# Developer 3: Spectator screen, scoreboard & competitive UX (Shoreline: Rescue Showdown, contract versus-1)
 
 Copy everything below into your Claude Code or Codex session.
 
 ---
 
-You are the coding agent for **Developer 3 (visuals, spectator screen and competitive UX)** on Stormline, our HowdyHack 2026 entry. Software is due **Sunday Oct 25, 2026, 12:00 Central**. Your job is to **implement and verify** the task below in real components. Don't stop at a plan. Make ordinary design and implementation choices yourself without asking. Optimize for a live demo: judges watching a projector from across a room.
+You are the coding agent for **Developer 3 (visuals, spectator screen and competitive UX)** on Shoreline, our HowdyHack 2026 entry. Software is due **Sunday Oct 25, 2026, 12:00 Central**. Your job is to **implement and verify** the task below in real components. Don't stop at a plan. Make ordinary design and implementation choices yourself without asking. Optimize for a live demo: judges watching a projector from across a room.
 
 ## A. Project context
 
-Stormline is a phone party game: ocean rescue on a sunny "Red Flag Day" beach (jet ski, sandbars, rocks, jellyfish, a tourist on a giant seagull float). It's built with Next.js 16, React 19, TypeScript strict (`noUncheckedIndexedAccess`), Tailwind v4 with theme tokens in `src/app/globals.css`, and tests with `node:test` via `tsx`.
+Shoreline is a phone party game: ocean rescue on a sunny "Shoreline" beach (jet ski, sandbars, rocks, jellyfish, a tourist on a giant seagull float). It's built with Next.js 16, React 19, TypeScript strict (`noUncheckedIndexedAccess`), Tailwind v4 with theme tokens in `src/app/globals.css`, and tests with `node:test` via `tsx`.
 
 - Canvas colours come from `src/components/ocean/palette.ts`.
 - **Components are props in only.** They never import `@/game/engine`, `@/lib/realtime` or `@/lib/game-client`.
@@ -21,7 +21,7 @@ The four-player co-op game is on `main` (tag `coop-v1`). Its `SpectatorDisplay`,
 
 ## B. The new 2v2 game
 
-**Stormline: Rescue Showdown.** *Two crews. One storm. Save the most lives.*
+**Shoreline: Rescue Showdown.** *Two crews. One storm. Save the most lives.*
 
 - Four phones, two teams:
   - **Blue Tower:** Driver + Navigator
@@ -46,8 +46,8 @@ You make the competition **feel** competitive:
 ## D. Git: exact start
 
 ```bash
-git clone https://github.com/mylesbrandon/stormline.git stormline-versus-spectator
-cd stormline-versus-spectator
+git clone https://github.com/mylesbrandon/shoreline.git shoreline-versus-spectator
+cd shoreline-versus-spectator
 git fetch origin --tags
 git switch --track origin/feat/versus-spectator
 git merge-base --is-ancestor c5067ee3c5cbac710a06abf2c3c942e8d19ab8e0 HEAD && echo "baseline OK"
@@ -57,7 +57,7 @@ npm run dev          # then open http://localhost:3000/versus/preview?view=spect
 ```
 
 With an existing clone, use a worktree instead:
-`git fetch origin --tags && git worktree add ../stormline-versus-spectator --track -b feat/versus-spectator origin/feat/versus-spectator`.
+`git fetch origin --tags && git worktree add ../shoreline-versus-spectator --track -b feat/versus-spectator origin/feat/versus-spectator`.
 Never run two agents in the same directory. Never commit to `main`.
 
 ## E. Files you own
@@ -212,7 +212,7 @@ gh pr create --base feat/versus --head feat/versus-spectator \
   --body "Replaces the Dev 3 placeholders (props unchanged, contract versus-1). Verified in /versus/preview at 375/1280/1920. npm run check: <paste summary>."
 ```
 
-Without `gh`: push and use `https://github.com/mylesbrandon/stormline/compare/feat/versus...feat/versus-spectator`.
+Without `gh`: push and use `https://github.com/mylesbrandon/shoreline/compare/feat/versus...feat/versus-spectator`.
 Never force-push, never `reset --hard`, never delete branches.
 
 ## P. Blockers

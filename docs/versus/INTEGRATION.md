@@ -7,13 +7,13 @@
 ## 1. Start (every developer)
 
 ```bash
-git clone https://github.com/mylesbrandon/stormline.git stormline-<you>   # or: git -C <existing clone> fetch origin --tags
-cd stormline-<you>
+git clone https://github.com/mylesbrandon/shoreline.git shoreline-<you>   # or: git -C <existing clone> fetch origin --tags
+cd shoreline-<you>
 git fetch origin --tags
 git switch --track origin/feat/versus-<area>      # engine | network | spectator | navigator
 git merge-base --is-ancestor c5067ee3c5cbac710a06abf2c3c942e8d19ab8e0 HEAD && echo "baseline OK"
 npm install
-cp ../stormline/.env.local .env.local              # optional: live Supabase (mock mode works without it)
+cp ../shoreline/.env.local .env.local              # optional: live Supabase (mock mode works without it)
 npm run check
 ```
 
@@ -21,8 +21,8 @@ Already have a clone with work in it? Use a worktree instead of switching branch
 
 ```bash
 git fetch origin --tags
-git worktree add ../stormline-versus-<area> --track -b feat/versus-<area> origin/feat/versus-<area>
-cd ../stormline-versus-<area> && npm install
+git worktree add ../shoreline-versus-<area> --track -b feat/versus-<area> origin/feat/versus-<area>
+cd ../shoreline-versus-<area> && npm install
 ```
 
 ## 2. Merge order (all into `feat/versus`)

@@ -93,8 +93,8 @@ export function VersusHostScreen({ roomCode, lanOrigin = null }: { roomCode: str
 
           {isMock && (
             <p className="rounded-xl border border-amber/40 bg-amber/10 p-3 text-sm text-amber">
-              Mock mode: phones cannot join this room. Add Supabase keys to <code>.env.local</code> for real multiplayer
-              (docs/DEPLOY.md), or open the <Link className="underline" href="/versus/preview">versus preview</Link>.
+              Practice mode: phones can&apos;t join this room because this build has no multiplayer connection. Open the{" "}
+              <Link className="underline" href="/versus/preview">practice screens</Link> instead.
             </p>
           )}
           {isMock && snap.error && (
@@ -107,7 +107,8 @@ export function VersusHostScreen({ roomCode, lanOrigin = null }: { roomCode: str
           <p className="flex items-baseline justify-between px-1 text-mist">
             <span className="text-lg font-semibold text-foam">Crews</span>
             <span className="text-sm">
-              {seated} of 4 on the beach · {snap.status}
+              {seated} of 4 on the beach
+              {snap.status === "connected" ? "" : snap.status === "connecting" ? ", connecting…" : ", offline"}
             </span>
           </p>
           {(["blue", "red"] as const).map((teamId) => {

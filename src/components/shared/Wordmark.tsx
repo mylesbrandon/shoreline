@@ -1,5 +1,5 @@
-/** The game's name as displayed. Code identifiers stay "stormline"; only this display changes. */
-export const GAME_TITLE = "Red Flag Day";
+/** The game's name as displayed. */
+export const GAME_TITLE = "Shoreline";
 
 /**
  * Lifeguard flag + poster lettering. Sized by the parent's font-size (the flag scales with it),

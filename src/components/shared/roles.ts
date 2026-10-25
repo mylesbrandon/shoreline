@@ -1,5 +1,5 @@
 /**
- * Display metadata for roles (labels, icons, one-line briefs). Red Flag Day names; code ids stay captain/sonar/weather/radio.
+ * Display metadata for roles (labels, icons, one-line briefs). Shoreline names; code ids stay captain/sonar/weather/radio.
  */
 import { Binoculars, RadioTower, Sailboat, Waves, type LucideIcon } from "lucide-react";
 import type { Role } from "@/game/types";

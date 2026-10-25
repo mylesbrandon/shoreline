@@ -1,14 +1,14 @@
-# Developer 1: Engine & rescue logic (Stormline: Rescue Showdown, contract versus-1)
+# Developer 1: Engine & rescue logic (Shoreline: Rescue Showdown, contract versus-1)
 
 Copy everything below into your Claude Code or Codex session.
 
 ---
 
-You are the coding agent for **Developer 1 (game engine and rescue logic)** on Stormline, our HowdyHack 2026 entry. Software is due **Sunday Oct 25, 2026, 12:00 Central**. Your job is to **implement and verify** the task below in code, with tests. Don't stop at a plan. Make ordinary implementation choices yourself without asking.
+You are the coding agent for **Developer 1 (game engine and rescue logic)** on Shoreline, our HowdyHack 2026 entry. Software is due **Sunday Oct 25, 2026, 12:00 Central**. Your job is to **implement and verify** the task below in code, with tests. Don't stop at a plan. Make ordinary implementation choices yourself without asking.
 
 ## A. Project context
 
-Stormline is a phone party game: ocean rescue on a sunny "Red Flag Day" beach. It's built with Next.js 16, React 19, TypeScript strict (`noUncheckedIndexedAccess`), Tailwind v4 and Supabase Realtime, and tested with `node:test` via `tsx`.
+Shoreline is a phone party game: ocean rescue on a sunny "Shoreline" beach. It's built with Next.js 16, React 19, TypeScript strict (`noUncheckedIndexedAccess`), Tailwind v4 and Supabase Realtime, and tested with `node:test` via `tsx`.
 
 - **Host-authoritative:** one host laptop runs the simulation. Phones send typed `PlayerAction`s and render filtered views.
 - **The engine (`src/game/engine/**`) is pure TypeScript:**
@@ -22,7 +22,7 @@ The existing four-player co-op game (Driver, Drone/Sonar, Surf Watch/Weather, To
 
 ## B. The new 2v2 game
 
-**Stormline: Rescue Showdown.** *Two crews. One storm. Save the most lives.*
+**Shoreline: Rescue Showdown.** *Two crews. One storm. Save the most lives.*
 
 - Four phones, two teams:
   - **Blue:** Captain (the Driver) + Navigator (Sonar sweep/mark + Radio scan/pin)
@@ -49,8 +49,8 @@ You don't touch networking or React.
 ## D. Git: exact start
 
 ```bash
-git clone https://github.com/mylesbrandon/stormline.git stormline-versus-engine
-cd stormline-versus-engine
+git clone https://github.com/mylesbrandon/shoreline.git shoreline-versus-engine
+cd shoreline-versus-engine
 git fetch origin --tags
 git switch --track origin/feat/versus-engine
 git merge-base --is-ancestor c5067ee3c5cbac710a06abf2c3c942e8d19ab8e0 HEAD && echo "baseline OK"
@@ -59,7 +59,7 @@ npm run check      # must be green before you change anything (109 tests at hand
 ```
 
 If you already have a clone with work in it, use a separate worktree instead:
-`git fetch origin --tags && git worktree add ../stormline-versus-engine --track -b feat/versus-engine origin/feat/versus-engine`.
+`git fetch origin --tags && git worktree add ../shoreline-versus-engine --track -b feat/versus-engine origin/feat/versus-engine`.
 Never run two agents in the same directory. Never commit to `main` or `feat/versus` directly.
 
 ## E. Files you own
@@ -221,7 +221,7 @@ gh pr create --base feat/versus --head feat/versus-engine \
   --body "Implements TODO(dev1) in src/game/engine/versus.ts per docs/versus/CONTRACTS.md (versus-1). npm run check: <paste summary>."
 ```
 
-If `gh` isn't authenticated, push the branch and give Developer 2 the compare URL: `https://github.com/mylesbrandon/stormline/compare/feat/versus...feat/versus-engine`.
+If `gh` isn't authenticated, push the branch and give Developer 2 the compare URL: `https://github.com/mylesbrandon/shoreline/compare/feat/versus...feat/versus-engine`.
 Never force-push, never `reset --hard`, never delete branches.
 
 ## P. Blockers

@@ -1,5 +1,5 @@
 /**
- * Pure canvas drawing helpers: Red Flag Day beach art (sunny water, sandbars, rocks, jellyfish,
+ * Pure canvas drawing helpers: Shoreline beach art (sunny water, sandbars, rocks, jellyfish,
  * a rescue jet ski, with opt-in person-in-the-water art for versus).
  * All inputs are in normalized map units; `size` is the canvas side length in CSS pixels.
  * Heading convention: 0 = north (up), clockwise positive — matches src/game/types.ts.
@@ -8,7 +8,7 @@
 import type { BoatState, Hazard, Marker, RescueTarget, Vec2 } from "@/game/types";
 import { hazardClass } from "@/game/versus/contract";
 import { BOAT } from "@/game/config";
-import { PALETTE } from "./palette";
+import { canvasFont, PALETTE } from "./palette";
 import { freshNavigatorMark, waterFlecks } from "./versus/scene-details";
 
 export interface SceneBoat {
@@ -113,7 +113,7 @@ export function drawOcean(ctx: CanvasRenderingContext2D, size: number, cam: Came
   }
   ctx.setLineDash([]);
   ctx.fillStyle = PALETTE.foam;
-  ctx.font = "9px monospace";
+  ctx.font = canvasFont(11, "normal");
   ctx.globalAlpha = 0.7;
   for (let i = 0; i < 4; i++) {
     ctx.fillText("ABCD"[i]!, (size * (i + 0.5)) / 4, 14);
@@ -159,7 +159,7 @@ function drawShore(ctx: CanvasRenderingContext2D, size: number, cam: Camera, tim
   ctx.fillStyle = PALETTE.hazard;
   ctx.fillRect(tx - h * 0.45, ty, h * 0.9, h * 0.4);
   ctx.fillStyle = PALETTE.foam;
-  ctx.font = `bold ${Math.max(7, h * 0.28)}px monospace`;
+  ctx.font = canvasFont(Math.max(7, h * 0.28));
   ctx.textAlign = "center";
   ctx.fillText("4", tx, ty + h * 0.32);
   ctx.textAlign = "start";
@@ -400,9 +400,9 @@ export function drawCurrentArrow(ctx: CanvasRenderingContext2D, size: number, cu
   ctx.beginPath();
   ctx.arc(cx + ux * len, cy + uy * len, 3, 0, Math.PI * 2);
   ctx.fill();
-  ctx.font = "8px monospace";
+  ctx.font = canvasFont(10, "normal");
   ctx.textAlign = "center";
-  ctx.fillText("RIP / SETS", cx, cy + 38);
+  ctx.fillText("Rip and sets", cx, cy + 38);
   ctx.textAlign = "start";
 }
 
@@ -461,7 +461,7 @@ function drawCompass(ctx: CanvasRenderingContext2D, seeThrough = false): void {
     ctx.closePath();
     ctx.fill();
     ctx.fillStyle = PALETTE.foam;
-    ctx.font = "bold 10px monospace";
+    ctx.font = canvasFont(12);
     ctx.textAlign = "center";
     ctx.fillText("N", cx, cy + 12);
     ctx.restore();
@@ -479,7 +479,7 @@ function drawCompass(ctx: CanvasRenderingContext2D, seeThrough = false): void {
   ctx.closePath();
   ctx.fill();
   ctx.fillStyle = PALETTE.ink;
-  ctx.font = "bold 10px monospace";
+  ctx.font = canvasFont(12);
   ctx.textAlign = "center";
   ctx.fillText("N", cx, cy + 12);
   ctx.textAlign = "start";
@@ -544,7 +544,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, size: number, scene: Oc
       if (extra.label) {
         const p = toScreen(cam, extra.boat.position);
         ctx.fillStyle = extra.tint; ctx.strokeStyle = PALETTE.ink;
-        ctx.lineWidth = 3; ctx.textAlign = "center"; ctx.font = "bold 9px monospace";
+        ctx.lineWidth = 3; ctx.textAlign = "center"; ctx.font = canvasFont(11);
         ctx.strokeText(extra.label, p.x, p.y - 19);ctx.fillText(extra.label, p.x, p.y - 19);
       }
       ctx.restore();
@@ -675,7 +675,7 @@ function drawNavigatorMark(ctx: CanvasRenderingContext2D, size: number, cam: Cam
     ctx.save();ctx.translate(p.x,p.y);ctx.scale(pulse,pulse);
     ctx.fillStyle=PALETTE.amber;ctx.strokeStyle="#9d241e";ctx.lineWidth=3;
     ctx.beginPath();ctx.moveTo(0,-12);ctx.lineTo(12,0);ctx.lineTo(0,12);ctx.lineTo(-12,0);ctx.closePath();ctx.fill();ctx.stroke();
-    ctx.fillStyle=PALETTE.ink;ctx.font="bold 16px monospace";ctx.textAlign="center";ctx.fillText("!",0,6);
+    ctx.fillStyle=PALETTE.ink;ctx.font=canvasFont(16);ctx.textAlign="center";ctx.fillText("!",0,6);
     ctx.restore();
   } else {
     // Radio's guess pin in versus: never a buoy (the old yellow-and-red one read as a person,
@@ -695,13 +695,13 @@ function drawNavigatorMark(ctx: CanvasRenderingContext2D, size: number, cam: Cam
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.globalAlpha = 1;
-    ctx.font = "bold 9px monospace";
+    ctx.font = canvasFont(11);
     ctx.textAlign = "center";
     ctx.lineWidth = 3;
     ctx.strokeStyle = PALETTE.ink;
-    ctx.strokeText("RADIO GUESS", p.x, p.y - r - 5);
+    ctx.strokeText("Radio guess", p.x, p.y - r - 5);
     ctx.fillStyle = PALETTE.amber;
-    ctx.fillText("RADIO GUESS", p.x, p.y - r - 5);
+    ctx.fillText("Radio guess", p.x, p.y - r - 5);
     ctx.restore();
     return;
   }
@@ -709,8 +709,8 @@ function drawNavigatorMark(ctx: CanvasRenderingContext2D, size: number, cam: Cam
     const x=Math.max(73,Math.min(size-73,p.x));
     const y=Math.max(16,p.y-22);
     ctx.save();ctx.fillStyle="rgba(8,48,74,.96)";ctx.fillRect(x-73,y-11,146,18);
-    ctx.fillStyle=PALETTE.foam;ctx.font="bold 9px monospace";ctx.textAlign="center";
-    ctx.fillText("MARKED BY NAVIGATOR",x,y+2);ctx.restore();
+    ctx.fillStyle=PALETTE.foam;ctx.font=canvasFont(11);ctx.textAlign="center";
+    ctx.fillText("Marked by Navigator",x,y+2);ctx.restore();
   }
 }
 
@@ -727,9 +727,9 @@ function drawDock(ctx: CanvasRenderingContext2D, size: number, cam: Camera): voi
     for(let y=berth.y;y<size;y+=6) {ctx.beginPath();ctx.moveTo(berth.x-width,y);ctx.lineTo(berth.x+width,y);ctx.stroke();}
   }
   ctx.fillStyle="#b89160";ctx.fillRect(left.x-width,shore,right.x-left.x+width*2,Math.max(8,size*.02));
-  for(const [berth,colour,label] of [[left,"#46b3ff","BLUE"],[right,"#ff5a4e","RED"]] as const) {
+  for(const [berth,colour,label] of [[left,"#46b3ff","Blue"],[right,"#ff5a4e","Red"]] as const) {
     ctx.fillStyle=colour;ctx.fillRect(berth.x-width,berth.y,width*2,Math.max(4,size*.012));
-    ctx.font="bold 8px monospace";ctx.textAlign="center";ctx.strokeStyle=PALETTE.ink;ctx.lineWidth=3;
+    ctx.font=canvasFont(11);ctx.textAlign="center";ctx.strokeStyle=PALETTE.ink;ctx.lineWidth=3;
     ctx.strokeText(label,berth.x,berth.y-5);ctx.fillText(label,berth.x,berth.y-5);
   }
   ctx.restore();

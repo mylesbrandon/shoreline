@@ -1,4 +1,4 @@
-# Stormline: Rescue Showdown — architecture
+# Shoreline: Rescue Showdown — architecture
 
 > Two crews. One storm. Save the most lives.
 
@@ -13,7 +13,7 @@
 | Engine | `src/game/engine/{state,layout,step,actions,views,score}.ts` | `createInitialState({ seed, gameId })` is deterministic. `step(state, dtMs)` covers boat physics, collisions, forecast, Gull drift and the endings: hull 0 → `failure/hull_destroyed`, reaching the Gull → `victory`, time up → `failure/timeout`. `applyAction(state, action, senderRole)` checks permissions, phase, payload and cooldowns. Views filter hidden information. 89 co-op tests. |
 | Host | `src/lib/game-client/host-session.ts` | `HostSession`: one `GameState`, a 30 Hz fixed-step accumulator (`runFrame`), views at 10 Hz (`broadcastViews`), seats by presence (first free `ROLES`), `SeqTracker` + `RecentIds`, `hello` → resend views. |
 | Phone | `src/lib/game-client/player-session.ts` | `PlayerSession`: per-session `seq`, keeps `views[me.role]` using `ViewOrderTracker(gameId, tick)`, re-sends `hello` when views are stale. |
-| Transport | `src/lib/realtime/*` | Supabase Broadcast + Presence on `stormline:room:<CODE>`, plus an in-memory `MockRoomTransport` for tests. Nothing here is role- or team-aware. |
+| Transport | `src/lib/realtime/*` | Supabase Broadcast + Presence on `shoreline:room:<CODE>`, plus an in-memory `MockRoomTransport` for tests. Nothing here is role- or team-aware. |
 | UI | `CaptainStation` (Driver window), `SonarStation`/`SonarScope`, `RadioStation`, `WeatherStation`, `SpectatorDisplay`/`OceanCanvas`, `RoleStation` switch, `HostScreen`, `PlayerScreen`, `StationPreview` | All stations are props in, actions out (`{ view, onAction }`). |
 
 ## 2. Chosen 2v2 design

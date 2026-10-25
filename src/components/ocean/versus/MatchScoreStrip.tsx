@@ -31,7 +31,7 @@ export function MatchScoreStrip({ scoreboard, team }: MatchScoreStripProps) {
     <div key={scoreboard.matchId + ":" + rescues} className={`vs-score-strip ${flash ? "vs-strip-flash" : ""}`} aria-label="Live match scoreboard">
       {TEAMS.map((id, index) => <div key={id} className={`vs-strip-team ${scoreboard.leader === id ? "vs-strip-leading" : ""}`}
         style={{ color: TEAM_INFO[id].hex, order: index * 2 }}>
-        <span>{id.toUpperCase()}{team === id && <small className="vs-you">YOU</small>}</span>
+        <span>{id === "blue" ? "Blue" : "Red"}{team === id && <small className="vs-you">you</small>}</span>
         <strong key={scoreboard.matchId + scoreboard.scores[id].rescues} className="vs-score-pop">{scoreboard.scores[id].rescues}</strong>
       </div>)}
       <span className={`vs-strip-clock ${urgent ? "vs-urgent-clock" : ""}`} style={{ order: 1 }} aria-label={"Time remaining " + time}>{time}</span>

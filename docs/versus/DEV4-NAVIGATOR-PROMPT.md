@@ -1,14 +1,14 @@
-# Developer 4: Navigator interface & gameplay UX (Stormline: Rescue Showdown, contract versus-1)
+# Developer 4: Navigator interface & gameplay UX (Shoreline: Rescue Showdown, contract versus-1)
 
 Copy everything below into your Claude Code or Codex session.
 
 ---
 
-You are the coding agent for **Developer 4 (Navigator interface and gameplay UX)** on Stormline, our HowdyHack 2026 entry. Software is due **Sunday Oct 25, 2026, 12:00 Central**. Your job is to **implement and verify** the Navigator screen in real components. Don't stop at a plan. Make ordinary design and implementation choices yourself without asking.
+You are the coding agent for **Developer 4 (Navigator interface and gameplay UX)** on Shoreline, our HowdyHack 2026 entry. Software is due **Sunday Oct 25, 2026, 12:00 Central**. Your job is to **implement and verify** the Navigator screen in real components. Don't stop at a plan. Make ordinary design and implementation choices yourself without asking.
 
 ## A. Project context
 
-Stormline is a phone party game: ocean rescue on a sunny "Red Flag Day" beach (jet ski, sandbars, rocks, jellyfish, a tourist on a giant seagull float). It's built with Next.js 16, React 19, TypeScript strict (`noUncheckedIndexedAccess`), Tailwind v4 with theme tokens in `src/app/globals.css` (`bg-abyss`, `text-teal`, `text-amber`, `text-cyan`, `border-hull`, `text-hazard`…), and tests with `node:test` via `tsx`.
+Shoreline is a phone party game: ocean rescue on a sunny "Shoreline" beach (jet ski, sandbars, rocks, jellyfish, a tourist on a giant seagull float). It's built with Next.js 16, React 19, TypeScript strict (`noUncheckedIndexedAccess`), Tailwind v4 with theme tokens in `src/app/globals.css` (`bg-abyss`, `text-teal`, `text-amber`, `text-cyan`, `border-hull`, `text-hazard`…), and tests with `node:test` via `tsx`.
 
 - **Host-authoritative:** phones never run game rules.
 - **Station components are props in, actions out** (`{ view, onAction }`). They never import `@/game/engine`, `@/lib/realtime` or `@/lib/game-client`.
@@ -24,7 +24,7 @@ They must keep working unchanged for co-op.
 
 ## B. The new 2v2 game
 
-**Stormline: Rescue Showdown.** *Two crews. One storm. Save the most lives.*
+**Shoreline: Rescue Showdown.** *Two crews. One storm. Save the most lives.*
 
 - Four phones, two teams:
   - **Blue:** Driver (Captain) + **Navigator**
@@ -45,8 +45,8 @@ You build the **Navigator screen**: one engaging but understandable role on a ph
 ## D. Git: exact start
 
 ```bash
-git clone https://github.com/mylesbrandon/stormline.git stormline-versus-navigator
-cd stormline-versus-navigator
+git clone https://github.com/mylesbrandon/shoreline.git shoreline-versus-navigator
+cd shoreline-versus-navigator
 git fetch origin --tags
 git switch --track origin/feat/versus-navigator
 git merge-base --is-ancestor c5067ee3c5cbac710a06abf2c3c942e8d19ab8e0 HEAD && echo "baseline OK"
@@ -56,7 +56,7 @@ npm run dev          # then open http://localhost:3000/versus/preview?view=navig
 ```
 
 With an existing clone, use a worktree instead:
-`git fetch origin --tags && git worktree add ../stormline-versus-navigator --track -b feat/versus-navigator origin/feat/versus-navigator`.
+`git fetch origin --tags && git worktree add ../shoreline-versus-navigator --track -b feat/versus-navigator origin/feat/versus-navigator`.
 Never run two agents in the same directory. Never commit to `main`.
 
 ## E. Files you own
@@ -194,7 +194,7 @@ gh pr create --base feat/versus --head feat/versus-navigator \
   --body "Replaces the NavigatorStation placeholder (props unchanged, contract versus-1). Verified in /versus/preview at 375 px; co-op stations unchanged. npm run check: <paste summary>."
 ```
 
-Without `gh`: push and use `https://github.com/mylesbrandon/stormline/compare/feat/versus...feat/versus-navigator`.
+Without `gh`: push and use `https://github.com/mylesbrandon/shoreline/compare/feat/versus...feat/versus-navigator`.
 Never force-push, never `reset --hard`, never delete branches.
 
 ## P. Blockers

@@ -25,7 +25,7 @@ interface LogEntry {
 }
 
 function tabId(roomCode: string): string {
-  const key = `stormline:${roomCode}:debug-id`;
+  const key = `shoreline:${roomCode}:debug-id`;
   try {
     const existing = window.sessionStorage.getItem(key);
     if (existing) return existing;
@@ -128,8 +128,8 @@ export function DebugRoom({ roomCode, name }: { roomCode: string; name: string }
         {error && <p className="rounded-lg border border-hazard/50 bg-hazard/10 p-3 text-sm text-hazard">{error}</p>}
         {isMock && (
           <p className="rounded-lg border border-amber/50 bg-amber/10 p-3 text-sm text-amber">
-            No Supabase env vars, so this is mock mode: only this tab is in the room and other tabs won&apos;t appear.
-            Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local and restart.
+            Practice mode: only this tab is in the room and other tabs won&apos;t appear. Add the realtime keys from
+            .env.example to .env.local and restart.
           </p>
         )}
         <div className="grid grid-cols-2 gap-3">
