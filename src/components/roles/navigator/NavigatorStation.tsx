@@ -216,8 +216,6 @@ export function NavigatorStation({ view, scoreboard, onAction }: NavigatorStatio
               onAction={onAction}
               flashSector={flashSector}
               compact
-              rival={rival}
-              rivalColor={rivalInfo.hex}
             />
           </section>
         )}
@@ -240,39 +238,46 @@ export function NavigatorStation({ view, scoreboard, onAction }: NavigatorStatio
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-1.5 pt-1">
-        <CooldownButton
-          label="Sweep"
-          tone="cyan"
-          size="md"
-          nowMs={now}
-          readyAtMs={view.sonar.pingReadyAtMs}
-          cooldownMs={SONAR.pingCooldownMs}
-          disabled={!active}
-          urgent={callout.kind === "prompt" && !rivalFlash}
-          onPress={sweep}
-        />
-        <CooldownButton
-          label="Scan"
-          tone="amber"
-          size="md"
-          nowMs={now}
-          readyAtMs={view.radio.scanReadyAtMs}
-          cooldownMs={RADIO.scanCooldownMs}
-          disabled={!active}
-          urgent={callout.kind === "prompt" && !rivalFlash}
-          onPress={scanBoatSector}
-        />
-        <button
-          type="button"
-          disabled={!active || !ahead}
-          onClick={markAhead}
-          aria-label="Mark nearest obstacle ahead"
-          className="relative h-16 min-h-11 w-full overflow-hidden rounded-xl border-2 border-teal bg-navy font-display text-sm font-semibold uppercase tracking-[0.12em] text-teal transition active:scale-[0.98] disabled:opacity-40"
-        >
-          Mark
-        </button>
-      </div>
+      {/* Each tab shows only its own tools (playtest r4): Sweep + Mark belong to the drone radar,
+          Scan to the radio; the radio's Scan/Pin toggle lives in the grid itself. */}
+      {tab === "drone" ? (
+        <div className="grid grid-cols-2 gap-1.5 pt-1">
+          <CooldownButton
+            label="Sweep"
+            tone="cyan"
+            size="md"
+            nowMs={now}
+            readyAtMs={view.sonar.pingReadyAtMs}
+            cooldownMs={SONAR.pingCooldownMs}
+            disabled={!active}
+            urgent={callout.kind === "prompt" && !rivalFlash}
+            onPress={sweep}
+          />
+          <button
+            type="button"
+            disabled={!active || !ahead}
+            onClick={markAhead}
+            aria-label="Mark nearest obstacle ahead"
+            className="relative h-16 min-h-11 w-full overflow-hidden rounded-xl border-2 border-teal bg-navy font-display text-sm font-semibold uppercase tracking-[0.12em] text-teal transition active:scale-[0.98] disabled:opacity-40"
+          >
+            Mark
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-1.5 pt-1">
+          <CooldownButton
+            label="Scan"
+            tone="amber"
+            size="md"
+            nowMs={now}
+            readyAtMs={view.radio.scanReadyAtMs}
+            cooldownMs={RADIO.scanCooldownMs}
+            disabled={!active}
+            urgent={callout.kind === "prompt" && !rivalFlash}
+            onPress={scanBoatSector}
+          />
+        </div>
+      )}
     </div>
   );
 }
