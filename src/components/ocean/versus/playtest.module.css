@@ -20,3 +20,20 @@
 @keyframes flash { from { opacity:.4; transform:scale(.96); } to { opacity:1; transform:scale(1); } }
 @media(prefers-reduced-motion:reduce) { .notice,.tickerActive { animation:none; } .barFill { transition:none; } }
 @media(min-width:768px) { .spectator :global(.vs-ocean-card) { max-width:calc(min(100%,100dvh - 420px)); } }
+.sharedStage { width:100%; }
+.sharedStage :global(.vs-score-number>strong) { font-size:clamp(56px,6vw,100px); }
+.sharedStage :global(.vs-board-team p) { font-size:clamp(11px,1.4vw,22px); }
+.sharedMap { width:min(100%,calc(100dvh - 400px)); min-width:230px; max-width:620px; margin-inline:auto; }
+.sharedCaption { margin:0 0 5px; text-align:center; font:9px var(--font-mono); letter-spacing:.08em; color:var(--color-mist); }
+.teamStatuses { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+.teamStatus { min-width:0; border:1px solid; border-radius:12px; padding:8px; background:var(--color-navy); }
+.teamStatusHeader { display:flex; align-items:center; justify-content:space-between; gap:5px; font-size:11px; font-weight:700; }
+.teamStatusHeader>span { font:9px var(--font-mono); color:var(--color-mist); }
+.teamStatuses .ticker { height:28px; font-size:10px; }
+@media(max-width:767px) {
+  .sharedMap { width:100%; min-width:0; }
+  .teamStatusHeader { display:block; }
+  .teamStatuses :global(.vs-map-footer) { flex-wrap:wrap; gap:5px; }
+  .teamStatuses :global(.vs-map-footer)>div { flex-basis:100%; }
+  .teamStatuses .ticker { height:40px; font-size:9px; }
+}

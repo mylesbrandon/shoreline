@@ -1,6 +1,6 @@
 "use client";
 import type { PlayerAction } from "@/game/types";
-import { BOAT, TARGET } from "@/game/config";
+import { BOAT } from "@/game/config";
 import { VERSUS, type VersusCaptainView, type MatchScoreboard } from "@/game/versus/contract";
 import { TEAM_INFO } from "@/components/shared/teams";
 import { OceanCanvas } from "@/components/ocean/OceanCanvas";
@@ -14,9 +14,14 @@ export interface VersusCaptainStationProps {
   scoreboard?: MatchScoreboard;
   onAction: (action: PlayerAction) => void;
 }
+/** Matches engine VERSUS_RULES.rescueRadius; keep the cosmetic approach ring in sync. */
+const VERSUS_PICKUP_RADIUS = 0.06;
 const WINDOW = { span: VERSUS.captainWindowSpan, lookout: VERSUS.captainVisualRange } as const;
 
 export function VersusCaptainStation({ view, scoreboard, onAction }: VersusCaptainStationProps) {
+  // The engine is the only rival-visibility filter.
+  const rival = view.rival;
+  const rivalTeam = view.team === "blue" ? "red" : "blue";
   const notices = useScoreFeedback(scoreboard);
   const notice = notices[view.team];
   const hull = Math.max(0, Math.min(100, scoreboard?.scores[view.team].hull ?? view.captain.boat.hull));
@@ -24,8 +29,10 @@ export function VersusCaptainStation({ view, scoreboard, onAction }: VersusCapta
   return <section className={styles.driver} aria-label={TEAM_INFO[view.team].label + " Driver station"}>
     <div className={styles.chart}>
       <OceanCanvas gameId={view.matchId + view.team} boat={view.captain.boat} hazards={view.captain.visibleHazards} markers={view.captain.markers}
-        target={view.survivor ? { position: view.survivor, rescueRadius: TARGET.rescueRadius } : null}
-        stormIntensity={view.captain.stormIntensity} window={WINDOW} versus boatTint={TEAM_INFO[view.team].hex} className="instrument" />
+        target={view.survivor ? { position: view.survivor, rescueRadius: VERSUS_PICKUP_RADIUS } : null}
+        stormIntensity={view.captain.stormIntensity} window={WINDOW}
+        elapsedMs={scoreboard?.elapsedMs ?? view.captain.mission.elapsedMs}
+        additionalBoats={rival ? [{ id: "rival", boat: { ...view.captain.boat, position: rival, heading: 0, speed: 0, throttle: 0, rudder: 0 }, tint: TEAM_INFO[rivalTeam].hex, opacity: .7, label: "RIVAL" }] : []} versus boatTint={TEAM_INFO[view.team].hex} className="instrument" />
       {notice && <p key={notice.key} className={styles.notice} role="status" style={{ color: notice.kind === "picked-up" ? "#4ade80" : "#ffc83d" }}>{notice.label}</p>}
     </div>
     <div className={styles.hull}>
