@@ -1,32 +1,19 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Ship, Swords } from "lucide-react";
+import { Swords } from "lucide-react";
 import { generateRoomCode, isValidRoomCode, normalizeRoomCode } from "@/lib/realtime/room-code";
 
+/** 2v2 "Rescue Showdown" is the game; the co-op routes only redirect here now. */
 export function HostButton() {
   const router = useRouter();
   return (
     <button
       type="button"
-      onClick={() => router.push(`/host/${generateRoomCode()}`)}
+      onClick={() => router.push(`/versus/host/${generateRoomCode()}`)}
       className="flex h-14 items-center justify-center gap-2 rounded-xl bg-teal font-semibold uppercase tracking-[0.2em] text-abyss transition hover:brightness-110 active:scale-[0.98]"
     >
-      <Ship className="size-5" /> Host a rescue
-    </button>
-  );
-}
-
-/** 2v2 "Rescue Showdown". Co-op stays the primary button; this sits directly under it. */
-export function VersusHostButton() {
-  const router = useRouter();
-  return (
-    <button
-      type="button"
-      onClick={() => router.push(`/versus/host/${generateRoomCode()}`)}
-      className="flex h-14 items-center justify-center gap-2 rounded-xl border-2 border-teal font-semibold uppercase tracking-[0.2em] text-teal transition hover:brightness-110 active:scale-[0.98]"
-    >
-      <Swords className="size-5" /> Host a Rescue Showdown (2v2)
+      <Swords className="size-5" /> Host a game
     </button>
   );
 }
@@ -40,7 +27,7 @@ export function JoinForm() {
       className="flex gap-2"
       onSubmit={(e) => {
         e.preventDefault();
-        if (valid) router.push(`/room/${code}`);
+        if (valid) router.push(`/versus/room/${code}`);
       }}
     >
       <input

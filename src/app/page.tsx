@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { MISSION } from "@/game/config";
+import { VERSUS, VERSUS_ROLES } from "@/game/versus/contract";
 import { Wordmark } from "@/components/shared/Wordmark";
-import { ROLES } from "@/game/types";
-import { ROLE_INFO } from "@/components/shared/roles";
-import { HostButton, JoinForm, VersusHostButton } from "./LandingActions";
+import { VERSUS_ROLE_INFO } from "@/components/shared/teams";
+import { HostButton, JoinForm } from "./LandingActions";
 import { resolveTransportKind } from "@/lib/realtime/env";
 import { ModeBadge } from "@/components/shared/ModeBadge";
 
@@ -21,14 +20,15 @@ export default function Home() {
           <Wordmark />
         </h1>
         <p className="max-w-xl text-xl text-mist sm:text-2xl">
-          A swimmer got dragged past the buoys by the rip.{" "}
-          <span className="text-foam">Four lifeguards, four phones, {MISSION.durationMs / 1000} seconds.</span>
+          Swimmers are getting dragged past the buoys by the rip.{" "}
+          <span className="text-foam">
+            Two crews, four phones, {VERSUS.matchDurationMs / 1000} seconds. Save the most swimmers.
+          </span>
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="instrument grid gap-3 rounded-2xl p-5">
             <h2 className="font-mono text-xs uppercase tracking-[0.25em] text-mist">On the big screen</h2>
             <HostButton />
-            <VersusHostButton />
           </div>
           <div className="instrument grid gap-3 rounded-2xl p-5">
             <h2 className="font-mono text-xs uppercase tracking-[0.25em] text-mist">On your phone</h2>
@@ -38,25 +38,25 @@ export default function Home() {
       </section>
 
       <section className="grid gap-4">
-        <h2 className="font-mono text-xs uppercase tracking-[0.25em] text-mist">The co-op crew · preview each station with mock data</h2>
-        <div className="grid gap-3 sm:grid-cols-4">
-          {ROLES.map((role) => {
-            const info = ROLE_INFO[role];
+        <h2 className="font-mono text-xs uppercase tracking-[0.25em] text-mist">Each crew · preview each seat with mock data</h2>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {VERSUS_ROLES.map((role) => {
+            const info = VERSUS_ROLE_INFO[role];
             const Icon = info.icon;
             return (
               <Link
                 key={role}
-                href={`/room/DEMO?preview=${role}`}
+                href={`/versus/preview?view=${role}`}
                 className="instrument group grid gap-2 rounded-2xl p-4 transition hover:-translate-y-0.5"
               >
-                <Icon className={`size-6 ${info.accent}`} />
+                <Icon className="size-6 text-teal" />
                 <span className="text-lg font-semibold">{info.label}</span>
                 <span className="text-sm text-mist">{info.brief}</span>
               </Link>
             );
           })}
         </div>
-        <Link href="/room/DEMO?preview=spectator" className="font-mono text-xs text-mist underline-offset-4 hover:underline">
+        <Link href="/versus/preview?view=spectator" className="font-mono text-xs text-mist underline-offset-4 hover:underline">
           Preview spectator screen →
         </Link>
       </section>
