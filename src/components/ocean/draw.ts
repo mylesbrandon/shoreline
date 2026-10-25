@@ -440,9 +440,33 @@ function drawGlare(ctx: CanvasRenderingContext2D, size: number, cam: Camera, loo
 }
 
 /** North marker: the window is north-up, so this is the only orientation cue. */
-function drawCompass(ctx: CanvasRenderingContext2D): void {
+function drawCompass(ctx: CanvasRenderingContext2D, seeThrough = false): void {
   const cx = 28;
   const cy = 28;
+  if (seeThrough) {
+    // Versus (playtest r5): an outline instead of a solid disc, drawn under the marks, so a warning
+    // marker in the top-left corner is never hidden behind the north pointer.
+    ctx.save();
+    ctx.globalAlpha = 0.6;
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 16, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = PALETTE.hazard;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - 12);
+    ctx.lineTo(cx + 5, cy);
+    ctx.lineTo(cx - 5, cy);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = PALETTE.foam;
+    ctx.font = "bold 10px monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("N", cx, cy + 12);
+    ctx.restore();
+    return;
+  }
   ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
   ctx.beginPath();
   ctx.arc(cx, cy, 16, 0, Math.PI * 2);
@@ -508,6 +532,8 @@ export function drawScene(ctx: CanvasRenderingContext2D, size: number, scene: Oc
   const personOverGlare = scene.versus && scene.window;
   if (scene.target && !personOverGlare) (scene.versus ? drawTarget : drawCoopTarget)(ctx, cam, scene.target, timeMs);
   if (scene.window) drawGlare(ctx, size, cam, scene.window.lookout, scene.versus);
+  // Versus: the north pointer goes under the marks and boats (see drawCompass).
+  if (scene.window && scene.versus) drawCompass(ctx, true);
   if (scene.target && personOverGlare) drawTarget(ctx, cam, scene.target, timeMs);
   if (scene.versus) {
     for (const m of scene.markers) drawNavigatorMark(ctx, size, cam, m, scene.elapsedMs ?? -1, timeMs);
@@ -528,7 +554,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, size: number, scene: Oc
   drawBoat(ctx, size, cam, scene.boat, scene.boatTint);
   if (scene.window) {
     for (const m of scene.markers) if (m.kind === "target_guess") drawEdgeArrow(ctx, size, cam, m);
-    drawCompass(ctx);
+    if (!scene.versus) drawCompass(ctx);
   }
   if (scene.current) drawCurrentArrow(ctx, size, scene.current);
 }
