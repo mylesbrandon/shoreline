@@ -3,14 +3,16 @@
  * Pure display math — no rules, no hidden info beyond what SonarView / RadioView already hold.
  *
  * Clock convention: 12 = dead ahead of the boat's heading, clockwise (3 = starboard, 6 = astern).
+ * Hazard wording follows versus-2 classes: land (sandbar/rock) vs jelly (debris).
  */
 import { sectorCenter } from "@/game/sectors";
 import type { RadioView, SonarContact, SonarView, SignalReading, Vec2 } from "@/game/types";
 import { GULL_CONTACT_ID } from "@/game/types";
+import { hazardClass } from "@/game/versus/contract";
 
 const TAU = Math.PI * 2;
 
-/** A gull / contact / reading older than this is ignored for callouts. */
+/** A person / contact / reading older than this is ignored for callouts. */
 export const CALLOUT_FRESH_MS = 6_000;
 /** Strong radio reading threshold for a direction callout. */
 export const SIGNAL_STRONG = 0.6;
@@ -64,10 +66,8 @@ function isFresh(atMs: number, nowMs: number, windowMs = CALLOUT_FRESH_MS): bool
   return age < windowMs;
 }
 
-function hazardLabel(kind: SonarContact["kind"]): string {
-  if (kind === "rock") return "ROCKS";
-  if (kind === "debris") return "JELLY";
-  return "SANDBAR";
+function hazardCalloutText(kind: Exclude<SonarContact["kind"], "gull">): string {
+  return hazardClass(kind) === "jelly" ? "JELLIES" : "LAND AHEAD";
 }
 
 function clockCall(boat: { position: Vec2; heading: number }, target: Vec2): { clock: number; dist: number; relative: number } {
@@ -76,7 +76,7 @@ function clockCall(boat: { position: Vec2; heading: number }, target: Vec2): { c
   return { clock: clockPosition(relative), dist: hypot2(boat.position, target), relative };
 }
 
-function freshGull(sonar: SonarView, nowMs: number): SonarContact | null {
+function freshPerson(sonar: SonarView, nowMs: number): SonarContact | null {
   let best: SonarContact | null = null;
   for (const c of sonar.contacts) {
     if (c.kind !== "gull" && c.hazardId !== GULL_CONTACT_ID) continue;
@@ -118,19 +118,16 @@ function hazardAhead(sonar: SonarView, nowMs: number): SonarContact | null {
 }
 
 /**
- * Pick one shout line for the Navigator. Priority: fresh gull → strong radio → hazard ahead → prompt.
+ * Pick one shout line for the Navigator. Priority: fresh person → strong radio → hazard ahead → prompt.
  */
 export function navigatorCallout(sonar: SonarView, radio: RadioView, nowMs: number = sonar.mission.elapsedMs): Callout {
-  const gull = freshGull(sonar, nowMs);
-  if (gull) {
-    const { clock, dist } = clockCall(sonar.boat, gull.position);
+  const person = freshPerson(sonar, nowMs);
+  if (person) {
+    const { clock, dist } = clockCall(sonar.boat, person.position);
     const band = distanceBand(dist);
-    return {
-      kind: "survivor",
-      clock,
-      band,
-      text: `SURVIVOR ${clock} O'CLOCK · ${band}`,
-    };
+    const text =
+      band === "CLOSE" ? `PERSON — CLOSE · ${clock} O'CLOCK` : `PERSON IN THE WATER · ${clock} O'CLOCK · ${band}`;
+    return { kind: "survivor", clock, band, text };
   }
 
   const signal = strongReading(radio, nowMs);
@@ -145,12 +142,12 @@ export function navigatorCallout(sonar: SonarView, radio: RadioView, nowMs: numb
   }
 
   const hazard = hazardAhead(sonar, nowMs);
-  if (hazard) {
+  if (hazard && hazard.kind !== "gull") {
     const { clock } = clockCall(sonar.boat, hazard.position);
     return {
       kind: "hazard",
       clock,
-      text: `${hazardLabel(hazard.kind)} AHEAD · TURN`,
+      text: hazardCalloutText(hazard.kind),
     };
   }
 

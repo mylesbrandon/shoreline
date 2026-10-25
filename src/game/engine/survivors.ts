@@ -44,7 +44,13 @@ const survivorSeed = (seed: number, survivorIndex: number) => (seed ^ Math.imul(
  * so a survivor never spawns next to (or on) the boat that just made a rescue, which would give an
  * instant second rescue. It picks a different candidate only if the boats are in different places.
  */
-export function survivorSpawn(seed: number, survivorIndex: number, hazards: Hazard[], boat: Vec2): Vec2 {
+export function survivorSpawn(
+  seed: number,
+  survivorIndex: number,
+  hazards: Hazard[],
+  boat: Vec2,
+  rescueRadius: number = TARGET.rescueRadius,
+): Vec2 {
   if (survivorIndex <= 0) return generateLayout(seed).target;
 
   const rng = createRng(survivorSeed(seed, survivorIndex));
@@ -55,7 +61,7 @@ export function survivorSpawn(seed: number, survivorIndex: number, hazards: Haza
       y: randomBetween(rng, LAYOUT.margin, 1 - LAYOUT.margin),
     };
     // Same rescue-zone clearance the layout gives the Gull, so the survivor is always reachable.
-    const blocked = hazards.some((h) => distance(p, h.position) < h.radius + TARGET.rescueRadius + LAYOUT.targetClearance);
+    const blocked = hazards.some((h) => distance(p, h.position) < h.radius + rescueRadius + LAYOUT.targetClearance);
     if (!blocked) clear.push(p);
   }
 

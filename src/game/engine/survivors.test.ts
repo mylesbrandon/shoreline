@@ -101,3 +101,15 @@ describe("survivors: spawn validity", () => {
     assert.ok(checked > 0, "some seed produced a clear candidate");
   });
 });
+
+describe("survivors: rescue radius", () => {
+  test("a wider rescue ring keeps the same hazard clearance around it", () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const hazards = hazardsOf(seed);
+      for (let i = 1; i <= 4; i++) {
+        const p = survivorSpawn(seed, i, hazards, START, 0.06);
+        for (const h of hazards) assert.ok(distance(p, h.position) >= h.radius + 0.06 + LAYOUT.targetClearance);
+      }
+    }
+  });
+});

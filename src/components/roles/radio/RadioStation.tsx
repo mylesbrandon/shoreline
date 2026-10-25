@@ -1,8 +1,8 @@
 "use client";
 /**
  * Radio operator's phone screen: "Signal Hunt".
- * One decision every scan: confirm the hot square, scan next door to see which way the Gull is
- * drifting, or move the shared pin. Radio is the only one who knows if the pin is still right.
+ * One decision every scan: confirm the hot square, scan next door to track the person in the water,
+ * or move the shared pin. Radio is the only one who knows if the pin is still right.
  * Props in (RadioView), typed actions out (onAction). Readings fade with MISSION time, so every
  * phone agrees and no new data is needed.
  */

@@ -7,7 +7,7 @@ const plexMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "600"], var
 
 export const metadata: Metadata = {
   title: "Red Flag Day",
-  description: "A tourist on a giant inflatable seagull just drifted past the buoys. Four lifeguards, four phones, 90 seconds.",
+  description: "A swimmer got dragged past the buoys by the rip. Four lifeguards, four phones, 90 seconds.",
 };
 
 export const viewport: Viewport = {

@@ -15,6 +15,14 @@ export interface StepResult {
   events: GameEvent[];
 }
 
+/** Per-mode tuning for step(). Co-op uses the defaults; versus passes its own (see ./versus.ts). */
+export interface StepTuning {
+  /** Multiplies BOAT.maxSpeed and BOAT.acceleration (1 = co-op). Turn rate is unchanged. */
+  boatSpeedFactor: number;
+}
+
+export const DEFAULT_STEP_TUNING: StepTuning = { boatSpeedFactor: 1 };
+
 /** Wrap an angle in radians into [0, 2π). */
 export function normalizeAngle(angle: number): number {
   const wrapped = ((angle % TWO_PI) + TWO_PI) % TWO_PI;
@@ -40,16 +48,17 @@ export function effectiveCurrent(weather: WeatherState, elapsedMs: number): Vec2
  * (map units / second). Semi-implicit Euler: speed is updated first, then heading and position
  * use the new speed.
  */
-export function stepBoat(boat: BoatState, dt: number, current: Vec2): BoatState {
+export function stepBoat(boat: BoatState, dt: number, current: Vec2, speedFactor = 1): BoatState {
   // 1. Speed eases toward throttle * maxSpeed, by at most acceleration * dt (no overshoot).
-  const targetSpeed = boat.throttle * BOAT.maxSpeed;
-  const maxDelta = BOAT.acceleration * dt;
+  const maxSpeed = BOAT.maxSpeed * speedFactor;
+  const targetSpeed = boat.throttle * maxSpeed;
+  const maxDelta = BOAT.acceleration * speedFactor * dt;
   const delta = targetSpeed - boat.speed;
   // Snap exactly onto the target when it's within reach, so speed settles at e.g. maxSpeed precisely.
   const speed = Math.max(0, Math.abs(delta) <= maxDelta ? targetSpeed : boat.speed + Math.sign(delta) * maxDelta);
 
   // 2. Turning scales with speed: a stopped boat can't turn.
-  const heading = normalizeAngle(boat.heading + boat.rudder * BOAT.maxTurnRate * (speed / BOAT.maxSpeed) * dt);
+  const heading = normalizeAngle(boat.heading + boat.rudder * BOAT.maxTurnRate * (speed / maxSpeed) * dt);
 
   // 3. Move along the heading plus the current. Heading 0 = north = -y; +y is south.
   // The current only displaces the boat; it never rotates the heading.
@@ -75,14 +84,19 @@ function applyForecast(weather: WeatherState, elapsedMs: number, events: GameEve
   return { ...weather, current: last.current, forecast: weather.forecast.filter((entry) => entry.atMs > elapsedMs) };
 }
 
-export function step(state: GameState, dtMs: number): StepResult {
+export function step(state: GameState, dtMs: number, tuning: StepTuning = DEFAULT_STEP_TUNING): StepResult {
   if (state.mission.phase !== "active") return { state, events: [] };
 
   const events: GameEvent[] = [];
   const elapsedMs = state.mission.elapsedMs + dtMs;
   // Explicit in time: this step moves with the current and shield as they were at its start;
   // forecast shifts reached during the step take effect from the next one.
-  const boat = stepBoat(state.boat, dtMs / 1000, effectiveCurrent(state.weather, state.mission.elapsedMs));
+  const boat = stepBoat(
+    state.boat,
+    dtMs / 1000,
+    effectiveCurrent(state.weather, state.mission.elapsedMs),
+    tuning.boatSpeedFactor,
+  );
 
   const mission = { ...state.mission, elapsedMs: Math.min(elapsedMs, state.mission.durationMs) };
   const hit = applyCollisions(state.hazards, boat, mission.elapsedMs, events);

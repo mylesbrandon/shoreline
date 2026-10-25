@@ -26,7 +26,7 @@ export const ROLE_INFO: Record<Role, { label: string; icon: LucideIcon; brief: s
   radio: {
     label: "Tower Radio",
     icon: RadioTower,
-    brief: "The beach is calling in sightings. Find the seagull. Move the pin.",
+    brief: "The beach is calling in sightings. Find the swimmer. Move the pin.",
     accent: "text-amber",
   },
 };

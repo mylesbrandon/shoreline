@@ -7,10 +7,13 @@
  * dtMs, so physics, collisions, sonar, radio and hidden-information rules are reused unchanged.
  *
  * Each world keeps the co-op single survivor (GameState.target). A rescue counts once and the next
- * survivor in the shared sequence (./survivors.ts) appears; a hull at 0 is a wipeout that respawns
- * the boat at the start. Either way the world stays active until the shared clock ends the match.
+ * survivor in the shared sequence (./survivors.ts) appears. Touching land (sandbars, rocks) runs
+ * the boat aground and jellyfish stings taking the hull to 0 wreck it; both are wipeouts that
+ * respawn the boat at the start. Either way the world stays active until the shared clock ends
+ * the match. Versus-only tuning (VERSUS_RULES) is passed into the co-op step and views, whose
+ * defaults keep co-op unchanged.
  */
-import { decideWinner, TEAMS, VERSUS, versusRoleMay } from "../versus/contract";
+import { decideWinner, hazardClass, TEAMS, VERSUS, versusRoleMay } from "../versus/contract";
 import type {
   MatchActionResult,
   MatchEvent,
@@ -33,9 +36,16 @@ import type { GameState, PlayerAction, PlayerActionType, Role } from "../types";
 import { applyAction as applyGameAction } from "./actions";
 import { scoreMission } from "./score";
 import { createInitialState } from "./state";
-import { step as stepGame } from "./step";
+import { step as stepGame, type StepTuning } from "./step";
 import { survivorSpawn } from "./survivors";
-import { getCaptainView, getRadioView, getSonarView, getSpectatorView as getGameSpectatorView } from "./views";
+import {
+  getCaptainSurvivor,
+  getCaptainView,
+  getRadioView,
+  getSonarView,
+  getSpectatorView as getGameSpectatorView,
+  type CaptainViewOptions,
+} from "./views";
 
 /**
  * The co-op role the world's own permission check expects for each versus action: the Navigator
@@ -50,11 +60,31 @@ const ENGINE_SENDER: Partial<Record<PlayerActionType, Role>> = {
   MARK_TARGET: "radio",
 };
 
+/** Engine-owned versus tuning (playtest round 2). Identical for both teams. */
+export const VERSUS_RULES = {
+  /** Boats are this much faster than co-op (top speed and acceleration). */
+  boatSpeedFactor: 1.5,
+  /** Pickup radius (co-op TARGET.rescueRadius is 0.05): a little more forgiving at the higher speed. */
+  rescueRadius: 0.06,
+  /** A drone contact also shows on the Driver's screen this long (co-op: 5 s). */
+  captainSonarRevealMs: 3_000,
+} as const;
+
+const VERSUS_STEP: StepTuning = { boatSpeedFactor: VERSUS_RULES.boatSpeedFactor };
+const VERSUS_CAPTAIN: CaptainViewOptions = {
+  visualRange: VERSUS.captainVisualRange,
+  sonarRevealMs: VERSUS_RULES.captainSonarRevealMs,
+};
+
 function createWorld(team: TeamId, seed: number, matchId: string): TeamWorld {
   const state = createInitialState({ seed, gameId: matchId });
   return {
     team,
-    state: { ...state, mission: { ...state.mission, durationMs: VERSUS.matchDurationMs } },
+    state: {
+      ...state,
+      target: { ...state.target, rescueRadius: VERSUS_RULES.rescueRadius },
+      mission: { ...state.mission, durationMs: VERSUS.matchDurationMs },
+    },
     rescues: 0,
     wipeouts: 0,
     lastRescueAtMs: null,
@@ -122,7 +152,10 @@ function resume(state: GameState): GameState {
 function nextSurvivor(state: GameState, seed: number, survivorIndex: number): GameState {
   return {
     ...state,
-    target: { ...state.target, position: survivorSpawn(seed, survivorIndex, state.hazards, state.boat.position) },
+    target: {
+      ...state.target,
+      position: survivorSpawn(seed, survivorIndex, state.hazards, state.boat.position, state.target.rescueRadius),
+    },
     // lastScanAtMs stays, so the scan cooldown still holds across a rescue.
     radio: { ...state.radio, readings: [] },
     markers: state.markers.filter((m) => m.kind !== "target_guess"),
@@ -130,18 +163,55 @@ function nextSurvivor(state: GameState, seed: number, survivorIndex: number): Ga
   };
 }
 
+/** Back to the start, stopped, with `hull`. Throttle and rudder are kept so the Driver's controls stay truthful. */
+function respawn(state: GameState, hull: number): GameState {
+  const boat = {
+    ...state.boat,
+    position: { x: MISSION.boatStart.x, y: MISSION.boatStart.y },
+    heading: MISSION.boatStartHeading,
+    speed: 0,
+    hull,
+  };
+  return resume({ ...state, boat });
+}
+
 function stepWorld(world: TeamWorld, seed: number, dtMs: number, events: MatchEvent[]): TeamWorld {
   const wasActive = world.state.mission.phase === "active";
-  const r = stepGame(world.state, dtMs);
+  const r = stepGame(world.state, dtMs, VERSUS_STEP);
+
+  // The co-op step damages the hull on every hazard. In versus only jellyfish do: land (sandbars,
+  // rocks) runs the boat aground instead, so its hits are re-reported with damage 0.
+  const kinds = new Map(world.state.hazards.map((h) => [h.id, h.kind]));
+  const isLand = (hazardId: string) => {
+    const kind = kinds.get(hazardId);
+    return kind !== undefined && hazardClass(kind) === "land";
+  };
+  let aground = false;
+  let jellyDamage = 0;
   for (const event of r.events) {
-    if (event.type !== "MISSION_ENDED") events.push({ type: "TEAM_GAME_EVENT", team: world.team, event });
+    if (event.type === "MISSION_ENDED") continue;
+    if (event.type === "HAZARD_HIT" && isLand(event.hazardId)) {
+      aground = true;
+      events.push({ type: "TEAM_GAME_EVENT", team: world.team, event: { ...event, damage: 0 } });
+      continue;
+    }
+    if (event.type === "HAZARD_HIT") jellyDamage += event.damage;
+    events.push({ type: "TEAM_GAME_EVENT", team: world.team, event });
   }
   if (!wasActive) return { ...world, state: r.state };
-  const { phase, failureReason, elapsedMs } = r.state.mission;
+  const elapsedMs = r.state.mission.elapsedMs;
+  // Recomputed rather than read from the co-op step, which also took land damage. (A sting in the
+  // same step as a land hit that already drained the co-op hull is lost; the boat is aground anyway.)
+  const hull = Math.max(0, world.state.boat.hull - jellyDamage);
 
-  // Co-op precedence already decided this step: hull_destroyed > victory > timeout. So a sunk
-  // boat never also rescues, and a rescue on the final step still counts.
-  if (phase === "victory") {
+  // Precedence, like co-op's "sunk beats rescue": wrecked > aground > rescue > timeout. The
+  // survivor stays where it is on a wipeout; the trip back from the start is the penalty.
+  if (hull <= 0 || aground) {
+    const cause = hull <= 0 ? "wrecked" : "aground";
+    events.push({ type: "BOAT_WIPEOUT", team: world.team, atMs: elapsedMs, cause });
+    return { ...world, state: respawn(r.state, cause === "wrecked" ? BOAT.startHull : hull), wipeouts: world.wipeouts + 1 };
+  }
+  if (r.state.mission.phase === "victory") {
     const rescue: RescueEvent = {
       team: world.team,
       survivorIndex: world.rescues,
@@ -156,19 +226,6 @@ function stepWorld(world: TeamWorld, seed: number, dtMs: number, events: MatchEv
       lastRescueAtMs: elapsedMs,
       rescueLog: [...world.rescueLog, rescue],
     };
-  }
-  // Wipeout: back to the start with a full hull; the trip back is the penalty. Throttle and rudder
-  // are kept so the Driver's controls still show what the boat is doing. The survivor stays put.
-  if (phase === "failure" && failureReason === "hull_destroyed") {
-    events.push({ type: "BOAT_WIPEOUT", team: world.team, atMs: elapsedMs });
-    const boat = {
-      ...r.state.boat,
-      position: { x: MISSION.boatStart.x, y: MISSION.boatStart.y },
-      heading: MISSION.boatStartHeading,
-      speed: 0,
-      hull: BOAT.startHull,
-    };
-    return { ...world, state: resume({ ...r.state, boat }), wipeouts: world.wipeouts + 1 };
   }
   return { ...world, state: r.state };
 }
@@ -215,7 +272,12 @@ function teamViews(match: VersusMatchState, team: TeamId): TeamViews {
   const state = match.teams[team].state;
   const common = { team, matchId: match.matchId, tick: match.tick };
   return {
-    captain: { ...common, role: "captain", captain: getCaptainView(state) },
+    captain: {
+      ...common,
+      role: "captain",
+      captain: getCaptainView(state, VERSUS_CAPTAIN),
+      survivor: getCaptainSurvivor(state, VERSUS.captainVisualRange),
+    },
     navigator: { ...common, role: "navigator", sonar: getSonarView(state), radio: getRadioView(state) },
   };
 }
