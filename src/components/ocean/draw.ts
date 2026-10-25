@@ -1,16 +1,19 @@
 /**
  * Pure canvas drawing helpers: Red Flag Day beach art (sunny water, sandbars, rocks, jellyfish,
- * a rescue jet ski and a tourist on a giant inflatable seagull).
+ * a rescue jet ski, with opt-in person-in-the-water art for versus).
  * All inputs are in normalized map units; `size` is the canvas side length in CSS pixels.
  * Heading convention: 0 = north (up), clockwise positive — matches src/game/types.ts.
  * Hazard kinds keep their code names: reef = sandbar, rock = rocks, debris = jellyfish bloom.
  */
 import type { BoatState, Hazard, Marker, RescueTarget, Vec2 } from "@/game/types";
+import { hazardClass } from "@/game/versus/contract";
 import { BOAT } from "@/game/config";
 import { PALETTE } from "./palette";
 
 export interface OceanScene {
   boat: BoatState;
+  /** Opt-in playtest visuals: co-op uses its existing art. */
+  versus?: boolean;
   /** Optional versus deck colour; absent preserves the original co-op drawing. */
   boatTint?: string;
   hazards: Hazard[];
@@ -270,8 +273,8 @@ export function drawMarker(ctx: CanvasRenderingContext2D, cam: Camera, m: Marker
   ctx.fillRect(x - 9, y - 2, 18, 4);
 }
 
-/** The Gull: a tourist on a giant inflatable seagull, on a yellow float ring. */
-export function drawTarget(ctx: CanvasRenderingContext2D, cam: Camera, target: RescueTarget, timeMs: number): void {
+/** Legacy co-op target art, retained to preserve existing co-op screens. */
+function drawCoopTarget(ctx: CanvasRenderingContext2D, cam: Camera, target: RescueTarget, timeMs: number): void {
   const { x, y } = toScreen(cam, target.position);
   const r = target.rescueRadius * cam.scale;
   ctx.strokeStyle = PALETTE.amber;
@@ -464,14 +467,67 @@ export function drawScene(ctx: CanvasRenderingContext2D, size: number, scene: Oc
   const cam = cameraFor(size, scene);
   drawOcean(ctx, size, cam, timeMs, scene.stormIntensity ?? 0.3, !scene.window);
   if (!scene.window) drawShore(ctx, size, cam, timeMs);
-  for (const h of scene.hazards) drawHazard(ctx, cam, h, timeMs);
+  for (const h of scene.hazards) {
+    if (scene.versus && hazardClass(h.kind) === "land") drawLand(ctx, cam, h);
+    else drawHazard(ctx, cam, h, timeMs);
+  }
   for (const m of scene.markers) drawMarker(ctx, cam, m);
-  if (scene.target) drawTarget(ctx, cam, scene.target, timeMs);
+  // Versus Driver window: the person goes ABOVE the glare. The engine sends them once their rescue
+  // ring reaches the lookout circle, i.e. often just outside the clear area, where the 93% glare
+  // would hide them until the instant of pickup.
+  const personOverGlare = scene.versus && scene.window;
+  if (scene.target && !personOverGlare) (scene.versus ? drawTarget : drawCoopTarget)(ctx, cam, scene.target, timeMs);
   if (scene.window) drawGlare(ctx, size, cam, scene.window.lookout);
+  if (scene.target && personOverGlare) drawTarget(ctx, cam, scene.target, timeMs);
   drawBoat(ctx, size, cam, scene.boat, scene.boatTint);
   if (scene.window) {
     for (const m of scene.markers) if (m.kind === "target_guess") drawEdgeArrow(ctx, size, cam, m);
     drawCompass(ctx);
   }
   if (scene.current) drawCurrentArrow(ctx, size, scene.current);
+}
+
+/** Versus land has a continuous shoreline; jellyfish keep the translucent pink renderer. */
+function drawLand(ctx: CanvasRenderingContext2D, cam: Camera, hazard: Hazard): void {
+  const { x, y } = toScreen(cam, hazard.position);
+  const r = hazard.radius * cam.scale;
+  ctx.save();
+  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = hazard.kind === "reef" ? "#806530" : "#293c49";
+  ctx.fillStyle = hazard.kind === "reef" ? PALETTE.sand : "#80909b";
+  ctx.beginPath();
+  if (hazard.kind === "reef") ctx.ellipse(x, y, r, r * 0.78, 0.4, 0, Math.PI * 2);
+  else {
+    for (let i = 0; i < 8; i++) {
+      const angle = i / 8 * Math.PI * 2;
+      const radius = r * (i % 2 ? .82 : 1);
+      if (!i) ctx.moveTo(x + Math.cos(angle) * radius, y + Math.sin(angle) * radius);
+      else ctx.lineTo(x + Math.cos(angle) * radius, y + Math.sin(angle) * radius);
+    }
+    ctx.closePath();
+  }
+  ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "rgba(255,255,255,.3)";
+  ctx.beginPath();ctx.ellipse(x-r*.2,y-r*.2,r*.45,r*.2,.4,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+}
+
+/** A waving person in an orange life ring; size remains legible in the small Driver window. */
+export function drawTarget(ctx: CanvasRenderingContext2D, cam: Camera, target: RescueTarget, timeMs: number): void {
+  const { x, y } = toScreen(cam, target.position);
+  const s = Math.max(8, Math.min(14, target.rescueRadius * cam.scale * .45));
+  ctx.save();ctx.translate(x,y);
+  ctx.strokeStyle = "rgba(255,255,255,.7)";ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.ellipse(0,s*.5,s*1.5,s*.7,0,0,Math.PI*2);ctx.stroke();
+  ctx.fillStyle = "#ff6f32";ctx.strokeStyle=PALETTE.ink;ctx.lineWidth=2;
+  ctx.beginPath();ctx.ellipse(0,s*.25,s*1.15,s*.7,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.fillStyle=PALETTE.deep;
+  ctx.beginPath();ctx.ellipse(0,s*.25,s*.55,s*.3,0,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle="#ffdec0";ctx.lineWidth=Math.max(3,s*.28);ctx.lineCap="round";
+  ctx.beginPath();ctx.moveTo(-s*.35,-s*.15);ctx.lineTo(-s*.85,-s*.65);ctx.stroke();
+  const wave = Math.sin(timeMs/200)*s*.18;
+  ctx.beginPath();ctx.moveTo(s*.2,-s*.2);ctx.lineTo(s*.7,-s*.8);ctx.lineTo(s*.75+wave,-s*1.4);ctx.stroke();
+  ctx.fillStyle="#ffdec0";ctx.strokeStyle=PALETTE.ink;ctx.lineWidth=1.3;
+  ctx.beginPath();ctx.arc(0,-s*.65,s*.4,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.restore();
 }

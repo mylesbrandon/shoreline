@@ -6,6 +6,9 @@ import { OceanCanvas } from "../OceanCanvas";
 import { isFinalCountdown } from "./feedback";
 import { MatchCountdown } from "./MatchCountdown";
 import { useRescueFeed } from "./use-rescue-feed";
+import { useScoreFeedback } from "./use-score-feedback";
+import { hullColour } from "./score-feedback";
+import styles from "./playtest.module.css";
 import { VersusResults } from "./VersusResults";
 
 export interface VersusSpectatorDisplayProps { view: SpectatorMatchView }
@@ -13,10 +16,11 @@ export interface VersusSpectatorDisplayProps { view: SpectatorMatchView }
 export function VersusSpectatorDisplay({ view }: VersusSpectatorDisplayProps) {
   const { scoreboard } = view;
   const feedback = useRescueFeed(view);
+  const tickers = useScoreFeedback(scoreboard);
   const urgent = isFinalCountdown(scoreboard);
   const time = formatClock(Math.max(0, scoreboard.durationMs - scoreboard.elapsedMs));
   const leader = scoreboard.leader;
-  return <section className={`vs-stage ${urgent ? "vs-stage-urgent" : ""}`} aria-label="Rescue Showdown spectator display">
+  return <section className={`vs-stage ${styles.spectator} ${urgent ? "vs-stage-urgent" : ""}`} aria-label="Rescue Showdown spectator display">
     <header className="vs-board">
       {TEAMS.map((team) => <div key={team} className={`vs-board-team ${leader === team ? "vs-board-leading" : ""}`}
         style={{ color: TEAM_INFO[team].hex, borderColor: TEAM_INFO[team].hex, order: team === "blue" ? 0 : 2 }}>
@@ -44,7 +48,7 @@ export function VersusSpectatorDisplay({ view }: VersusSpectatorDisplayProps) {
           <div className="vs-map-square" data-team-map={team}>
             <OceanCanvas gameId={view.matchId + "-" + team} boat={world.boat} hazards={world.hazards} markers={world.markers}
               target={scoreboard.result ? world.target : null} current={world.weather.current} stormIntensity={world.weather.stormIntensity}
-              boatTint={TEAM_INFO[team].hex} />
+              boatTint={TEAM_INFO[team].hex} versus />
             {feedback.bursts.filter((b) => b.rescue.team === team).map((burst) =>
               <div key={burst.key} className="vs-rescue-burst" data-rescue-team={team} style={{
                 left: Math.max(0, Math.min(1, burst.rescue.position.x)) * 100 + "%",
@@ -54,13 +58,16 @@ export function VersusSpectatorDisplay({ view }: VersusSpectatorDisplayProps) {
           </div>
           <footer className="vs-map-footer"><span>HULL {Math.round(hull)}%</span>
             <div role="progressbar" aria-label={TEAM_INFO[team].label + " hull"} aria-valuenow={hull} aria-valuemin={0} aria-valuemax={100}>
-              <div style={{ width: hull + "%", backgroundColor: hull <= 25 ? "var(--color-hazard)" : TEAM_INFO[team].hex }} />
+              <div style={{ width: hull + "%", backgroundColor: hullColour(hull) }} />
             </div>
           </footer>
+          <p className={`${styles.ticker} ${tickers[team] ? styles.tickerActive : ""}`} role="status">
+            {tickers[team]?.label ?? "Land sends you home · jellyfish sting"}
+          </p>
         </article>;
       })}
     </div>
-    <p className="vs-stage-caption">Same ocean. Same clock. Save the most lives.</p>
+    <p className="vs-stage-caption">Same ocean. Same clock. Save the most lives. Land = aground · pink jellyfish = hull damage.</p>
     {feedback.lead && !scoreboard.result && <div key={feedback.lead.serial} className="vs-lead-banner" role="status" style={{ color: TEAM_INFO[feedback.lead.team].hex }}>{feedback.lead.team.toUpperCase()} TAKES THE LEAD!</div>}
     <MatchCountdown scoreboard={scoreboard} />
     {scoreboard.result && <div className="vs-results-overlay"><VersusResults result={scoreboard.result} /></div>}

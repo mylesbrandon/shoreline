@@ -7,9 +7,11 @@ export interface CaptainControlsProps {
   boat: BoatState;
   onAction: (action: PlayerAction) => void;
   disabled?: boolean;
+  /** Versus-only readout scale; the co-op default is unchanged. */
+  maxSpeed?: number;
 }
 
-export function CaptainControls({ boat, onAction, disabled = false }: CaptainControlsProps) {
+export function CaptainControls({ boat, onAction, disabled = false, maxSpeed = BOAT.maxSpeed }: CaptainControlsProps) {
   const [rudder, setRudder] = useState(0);
   const [throttle, setThrottle] = useState<number | null>(null);
   const steering = useRef(false);
@@ -26,7 +28,7 @@ export function CaptainControls({ boat, onAction, disabled = false }: CaptainCon
       <div><p className="font-mono text-[10px] uppercase tracking-[0.25em] text-mist">Jet ski</p>
         <p className="text-lg font-semibold">{disabled ? "Waiting for the whistle" : "You're driving"}</p></div>
       <div className="text-right font-mono"><p className="text-xl text-teal">{(Math.round(heading) % 360).toString().padStart(3, "0")}°</p>
-        <p className="text-xs text-mist">{Math.round(boat.speed / BOAT.maxSpeed * 100)}% speed</p></div>
+        <p className="text-xs text-mist">{Math.round(boat.speed / maxSpeed * 100)}% speed</p></div>
     </div>
     <label className="grid gap-1">
       <span className="flex justify-between font-mono text-[11px] uppercase tracking-wider text-mist">
