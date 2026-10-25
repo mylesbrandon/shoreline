@@ -1,25 +1,35 @@
 @import "tailwindcss";
 
 /*
- * Red Flag Day design tokens (sunny beach: deep-water panels, sand, lifeguard red, buoy yellow).
+ * Red Flag Day design tokens. Beach overhaul: Gulf water panels on a sunlit sea, warm sand,
+ * the red-over-yellow lifeguard flag (red = danger / brand, yellow = the one thing to press).
  * Token names are kept from the original theme so every component re-themes without edits. Use these via Tailwind classes (bg-abyss, text-teal, border-hull…)
  * or via var(--color-*) in canvas code (see components/ocean/palette.ts — keep them in sync).
  */
 @theme {
-  --color-abyss: #08304a;
-  --color-navy: #0d4462;
-  --color-deep: #1f7a99;
-  --color-hull: #3a7f97;
-  --color-foam: #ffffff;
-  --color-mist: #b9dfe6;
-  --color-teal: #4cc9c0;
-  --color-cyan: #8be3ef;
-  --color-amber: #ffc83d;
-  --color-hazard: #e8412f;
-  --color-brass: #f3d9a4;
+  --color-abyss: #073f4d;
+  --color-navy: #0a5466;
+  --color-deep: #0f7486;
+  --color-hull: #3e8e98;
+  --color-foam: #fffdf6;
+  --color-mist: #c9ecec;
+  --color-teal: #5ce1d0;
+  --color-cyan: #9befff;
+  --color-amber: #ffd23f;
+  --color-hazard: #e5322d;
+  --color-brass: #f2c879;
+  /* Beach overhaul extras (additive): warm sand, wet sand, sky. */
+  --color-sand: #f2c879;
+  --color-wet-sand: #c99a52;
+  --color-sky: #8fd8ea;
+  /* 2v2 Rescue Showdown team colours (text-team-blue, bg-team-red/20…). Canvas: PALETTE in ocean/palette.ts. */
+  --color-team-blue: #46b3ff;
+  --color-team-red: #ff5a4e;
 
-  --font-display: var(--font-chakra), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  /* Baloo 2 for all UI text (labels too: no monospace chrome); Bowlby One for the poster moments. */
+  --font-display: var(--font-baloo), ui-rounded, system-ui, sans-serif;
+  --font-mono: var(--font-baloo), ui-rounded, system-ui, sans-serif;
+  --font-poster: var(--font-bowlby), var(--font-baloo), system-ui, sans-serif;
 }
 
 :root {
@@ -34,19 +44,29 @@ body {
 }
 
 body {
+  /* Sunlit Gulf water: bright near the surface (top), deeper below, a hint of caustic light. */
+  background-color: var(--color-abyss);
   background-image:
-    radial-gradient(1200px 600px at 50% -10%, rgb(255 236 179 / 0.16), transparent 60%),
-    radial-gradient(800px 500px at 100% 110%, rgb(76 201 192 / 0.12), transparent 60%);
+    radial-gradient(900px 420px at 50% -8%, rgb(255 236 170 / 0.28), transparent 62%),
+    radial-gradient(1400px 260px at 20% 18%, rgb(255 255 255 / 0.05), transparent 70%),
+    linear-gradient(180deg, #0f8a96 0%, #0b6e7c 30%, #084f5e 70%, var(--color-abyss) 100%);
+  background-attachment: fixed;
   min-height: 100dvh;
+}
+
+/* Timers and counters keep their width as digits change. */
+.font-mono {
+  font-variant-numeric: tabular-nums;
 }
 
 /* Instrument panel surface used by stations */
 .instrument {
-  background: linear-gradient(180deg, rgb(17 84 117 / 0.92), rgb(10 56 84 / 0.96));
-  border: 1px solid rgb(243 217 164 / 0.28);
+  /* Deep-water glass with a sand rim, like a panel set into a lifeguard tower. */
+  background: linear-gradient(180deg, rgb(10 92 108 / 0.94), rgb(6 62 76 / 0.97));
+  border: 1.5px solid rgb(242 200 121 / 0.45);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.08),
-    0 10px 30px -12px rgb(0 0 0 / 0.6);
+    inset 0 1px 0 rgb(255 255 255 / 0.12),
+    0 12px 28px -14px rgb(2 30 38 / 0.8);
 }
 
 /* Big touch-friendly range inputs for station controls */
@@ -60,12 +80,12 @@ body {
 .helm-range::-webkit-slider-runnable-track {
   height: 0.5rem;
   border-radius: 9999px;
-  background: linear-gradient(90deg, rgb(243 217 164 / 0.35), rgb(76 201 192 / 0.6));
+  background: linear-gradient(90deg, rgb(242 200 121 / 0.75), rgb(92 225 208 / 0.75));
 }
 .helm-range::-moz-range-track {
   height: 0.5rem;
   border-radius: 9999px;
-  background: linear-gradient(90deg, rgb(243 217 164 / 0.35), rgb(76 201 192 / 0.6));
+  background: linear-gradient(90deg, rgb(242 200 121 / 0.75), rgb(92 225 208 / 0.75));
 }
 .helm-range::-webkit-slider-thumb {
   appearance: none;
@@ -73,17 +93,21 @@ body {
   width: 2.5rem;
   height: 2.5rem;
   border-radius: 9999px;
-  background: var(--color-foam);
-  border: 3px solid var(--color-teal);
-  box-shadow: 0 0 16px rgb(76 201 192 / 0.6);
+  background:
+    radial-gradient(circle, var(--color-navy) 0 34%, transparent 35%),
+    conic-gradient(#e5322d 0 12.5%, #fffdf6 0 37.5%, #e5322d 0 62.5%, #fffdf6 0 87.5%, #e5322d 0);
+  border: 2px solid #fffdf6;
+  box-shadow: 0 3px 10px rgb(2 30 38 / 0.55);
 }
 .helm-range::-moz-range-thumb {
   width: 2.5rem;
   height: 2.5rem;
   border-radius: 9999px;
-  background: var(--color-foam);
-  border: 3px solid var(--color-teal);
-  box-shadow: 0 0 16px rgb(76 201 192 / 0.6);
+  background:
+    radial-gradient(circle, var(--color-navy) 0 34%, transparent 35%),
+    conic-gradient(#e5322d 0 12.5%, #fffdf6 0 37.5%, #e5322d 0 62.5%, #fffdf6 0 87.5%, #e5322d 0);
+  border: 2px solid #fffdf6;
+  box-shadow: 0 3px 10px rgb(2 30 38 / 0.55);
 }
 
 @keyframes sonar-sweep {
@@ -103,4 +127,196 @@ body {
   .sonar-sweep {
     animation: none;
   }
+}
+
+/* Rescue Showdown: additive versus-only presentation; co-op rules above are unchanged. */
+.vs-stage { position:relative; padding:12px; border:2px solid var(--color-hull); border-radius:24px; background:var(--color-abyss); isolation:isolate; }
+.vs-board { display:grid; grid-template-columns:1fr minmax(90px, .8fr) 1fr; gap:8px; align-items:center; margin-bottom:12px; }
+.vs-board-team { position:relative; text-align:center; border-bottom:3px solid; padding:8px; border-radius:12px; }
+.vs-board-team p { font-weight:700; text-transform:uppercase; letter-spacing:.12em; font-size:clamp(11px,1.7vw,24px); }
+.vs-board-leading { background:linear-gradient(0deg,rgba(255,255,255,.10),transparent); box-shadow:inset 0 -14px 22px -24px currentColor; }
+.vs-score-number { position:relative; line-height:.95; }
+.vs-score-number>strong { display:inline-block; font-size:clamp(64px,8vw,136px); font-weight:800; font-variant-numeric:tabular-nums; }
+.vs-rescue-label { display:block; margin-top:5px; font:10px var(--font-mono); letter-spacing:.2em; }
+.vs-board-center { text-align:center; }
+.vs-eyebrow { font:10px var(--font-mono); text-transform:uppercase; letter-spacing:.18em; color:var(--color-mist); }
+.vs-board-center>strong { display:block; font:700 clamp(24px,4vw,64px)/1.3 var(--font-mono); font-variant-numeric:tabular-nums; color:var(--color-foam); }
+.vs-leader-label { display:block; font-size:clamp(10px,1.5vw,22px); font-weight:800; letter-spacing:.06em; }
+.vs-board-center>small { display:block; font-size:10px; color:var(--color-mist); }
+.vs-maps { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; }
+.vs-ocean-card { min-width:0; padding:8px; border:2px solid; border-radius:18px; background:var(--color-navy); }
+.vs-map-header { display:flex; justify-content:space-between; gap:8px; align-items:center; margin-bottom:8px; }
+.vs-map-header h3 { font-size:clamp(14px,1.4vw,22px); font-weight:700; }
+.vs-map-header>span { font:10px var(--font-mono); color:var(--color-mist); white-space:nowrap; }
+.vs-map-square { position:relative; aspect-ratio:1; width:100%; overflow:hidden; border-radius:12px; }
+.vs-map-footer { display:flex; gap:10px; align-items:center; margin-top:8px; font:10px var(--font-mono); color:var(--color-foam); }
+.vs-map-footer>div { flex:1; height:8px; border-radius:8px; overflow:hidden; background:var(--color-hull); }
+.vs-map-footer>div>div { height:100%; transition:width .2s; }
+.vs-stage-caption { margin-top:10px; text-align:center; font:10px var(--font-mono); color:var(--color-mist); text-transform:uppercase; letter-spacing:.15em; }
+.vs-countdown { position:absolute; inset:0; z-index:40; display:grid; place-items:center; text-align:center; background:rgba(4,10,22,.88); border-radius:inherit; pointer-events:none; }
+.vs-countdown strong { display:block; font-size:clamp(100px,20vw,240px); line-height:1.1; font-weight:800; color:var(--color-foam); animation:vs-count-in .6s both; }
+.vs-countdown-phone { position:fixed; border-radius:0; z-index:80; }
+.vs-go { background:rgba(4,10,22,.60); }
+.vs-go strong { color:var(--color-teal); }
+.vs-stage-urgent { border-color:var(--color-team-red); box-shadow:inset 0 0 28px rgba(255,111,97,.14),0 0 25px rgba(255,111,97,.2); }
+.vs-urgent-clock { color:var(--color-team-red)!important; animation:vs-clock-pulse 1s ease-in-out infinite; }
+.vs-score-pop { display:inline-block; animation:vs-score-pop .45s ease-out; }
+.vs-score-plus { position:absolute; left:68%; top:15%; font-size:clamp(24px,3vw,48px); font-weight:800; animation:vs-score-fly 1.8s both; }
+.vs-rescue-burst { position:absolute; z-index:4; transform:translate(-50%,-50%); display:grid; justify-items:center; pointer-events:none; text-shadow:0 2px 4px #040a16,0 0 5px #040a16; }
+.vs-rescue-burst i { position:absolute; top:50%; left:50%; border:4px solid currentColor; width:28px; height:28px; border-radius:50%; animation:vs-rescue-ring 1.8s both; }
+.vs-rescue-burst strong { font:bold 36px var(--font-display); animation:vs-score-fly 1.8s both; }
+.vs-rescue-burst span { font:bold 9px var(--font-mono); padding:2px 5px; border-radius:4px; background:#040a16; }
+.vs-lead-banner { position:absolute; top:48%; left:50%; transform:translate(-50%,-50%); z-index:20; width:max-content; max-width:95%; padding:16px 24px; text-align:center; font-size:clamp(18px,3vw,44px); font-weight:800; background:rgba(4,10,22,.96); border:2px solid currentColor; border-radius:14px; animation:vs-fade .3s both; }
+.vs-score-strip { display:flex; align-items:center; justify-content:space-between; height:54px; padding:0 10px; gap:6px; border:1px solid var(--color-hull); border-radius:12px; background:var(--color-abyss); }
+.vs-strip-team { display:flex; gap:7px; align-items:center; min-width:0; border-radius:8px; padding:4px; }
+.vs-strip-team>span { font:bold 11px var(--font-mono); display:flex; align-items:center; gap:4px; }
+.vs-strip-team>strong { font:bold 26px var(--font-mono); }
+.vs-strip-leading { text-shadow:0 0 14px currentColor; background:rgba(255,255,255,.06); }
+.vs-you { font-size:8px; border:1px solid currentColor; padding:2px; border-radius:3px; }
+.vs-strip-clock { font:bold 20px var(--font-mono); color:var(--color-foam); font-variant-numeric:tabular-nums; }
+.vs-strip-flash { animation:vs-strip-flash .65s both; }
+.vs-results-overlay { position:absolute; inset:0; z-index:50; display:grid; align-content:center; overflow:auto; padding:16px; border-radius:inherit; background:rgba(4,10,22,.95); }
+.vs-results { display:grid; justify-items:center; gap:12px; width:100%; padding:clamp(16px,3vw,40px); text-align:center; border:1px solid var(--color-hull); border-radius:20px; background:var(--color-abyss); }
+.vs-results-kicker { font:12px var(--font-mono); text-transform:uppercase; letter-spacing:.2em; color:var(--color-amber); }
+.vs-results h2 { font-weight:800; font-size:clamp(32px,5vw,80px); line-height:1.05; }
+.vs-results-subtitle { color:var(--color-mist); font-size:14px; }
+.vs-result-scores { width:100%; max-width:640px; display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:8px 0; }
+.vs-result-team { display:grid; gap:3px; padding:12px 6px; border:2px solid; border-radius:16px; background:var(--color-navy); }
+.vs-result-team>p { font-size:clamp(12px,1.7vw,22px); font-weight:700; }
+.vs-result-team>strong { font-size:clamp(52px,7vw,104px); line-height:1; font-weight:800; }
+.vs-result-team>span { text-transform:uppercase; letter-spacing:.15em; font:10px var(--font-mono); color:var(--color-foam); }
+.vs-result-team>small { margin-top:6px; font:11px var(--font-mono); color:var(--color-mist); }
+.vs-result-winner { background:linear-gradient(0deg,rgba(255,255,255,.12),transparent); }
+.vs-tiebreak { font-weight:700; color:var(--color-amber); }
+.vs-tiebreak span { display:block; margin-top:4px; font-size:11px; font-weight:400; color:var(--color-mist); }
+.vs-results-footer { width:100%; }
+@media(min-width:768px) {
+  .vs-stage { max-width:calc(min(100%,1200px)); margin-inline:auto; }
+  .vs-maps { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .vs-ocean-card { width:100%; max-width:calc(min(100%,100dvh - 368px)); justify-self:center; }
+}
+@keyframes vs-score-pop { 0% { transform:scale(.8); } 45% { transform:scale(1.2); } 100% { transform:scale(1); } }
+@keyframes vs-clock-pulse { 50% { opacity:.6; text-shadow:0 0 22px currentColor; } }
+@keyframes vs-score-fly { 0% { transform:translateY(25px) scale(.7); opacity:0; } 20% { opacity:1; } 100% { transform:translateY(-45px) scale(1.2); opacity:0; } }
+@keyframes vs-rescue-ring { 0% { transform:translate(-50%,-50%) scale(.4); opacity:1; } 100% { transform:translate(-50%,-50%) scale(4); opacity:0; } }
+@keyframes vs-count-in { from { transform:scale(1.25); opacity:.4; } to { transform:scale(1); opacity:1; } }
+@keyframes vs-fade { from { opacity:0; } to { opacity:1; } }
+@keyframes vs-strip-flash { 20% { box-shadow:0 0 20px var(--color-foam); background:var(--color-hull); } }
+@media(prefers-reduced-motion:reduce) {
+  .vs-stage *, .vs-score-strip *, .vs-countdown *, .vs-results *, .vs-strip-flash { animation:none!important; transition:none!important; }
+  .vs-score-plus, .vs-rescue-burst { animation:vs-fade .25s both!important; }
+}
+
+.vs-strip-team:nth-child(2) { flex-direction:row-reverse; }
+
+/* Navigator callout (Dev 4, versus) — shoutable on a 375 px phone */
+.navigator-callout {
+  font-size: clamp(1.5rem, 7vw, 1.85rem); /* ≥ 24–28 px */
+  min-height: 2.75rem;
+  text-wrap: balance;
+}
+.navigator-callout--found {
+  text-shadow: 0 0 18px rgb(255 200 61 / 0.55);
+  animation: navigator-found-pulse 1.1s ease-in-out 2;
+}
+@keyframes navigator-found-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.04);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .navigator-callout--found {
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Beach overhaul (playtest r8). Poster face for the moments people read from across the room.
+ * ------------------------------------------------------------------------- */
+.font-poster {
+  font-family: var(--font-poster);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+.vs-strip-team > strong,
+.vs-strip-clock,
+.vs-board-center > strong,
+.vs-score-number > strong,
+.vs-result-team > strong,
+.vs-rescue-burst strong {
+  font-family: var(--font-poster);
+  font-weight: 400;
+}
+
+/* The lifeguard flag: red over yellow, split on the diagonal, waving from the top edge. */
+.lifeguard-flag {
+  display: inline-block;
+  aspect-ratio: 4 / 3;
+  background: linear-gradient(135deg, var(--color-hazard) 0 50%, var(--color-amber) 50% 100%);
+  border-radius: 2px 6px 6px 2px;
+  transform-origin: left center;
+  animation: flag-wave 2.6s ease-in-out infinite;
+  box-shadow: 0 6px 14px -8px rgb(0 0 0 / 0.6);
+}
+@keyframes flag-wave {
+  0%, 100% { transform: skewY(0deg) scaleX(1); }
+  50% { transform: skewY(-4deg) scaleX(0.94); }
+}
+
+/* Beach towels: crew cards striped in the crew colour. --towel is set inline per crew. */
+.towel {
+  position: relative;
+  background:
+    repeating-linear-gradient(90deg, var(--towel) 0 22px, rgb(255 253 246 / 0.92) 22px 30px) top / 100% 10px no-repeat,
+    linear-gradient(180deg, rgb(10 92 108 / 0.94), rgb(6 62 76 / 0.97));
+  overflow: hidden;
+  border: 1.5px solid color-mix(in srgb, var(--towel) 55%, transparent);
+  border-radius: 18px;
+  padding-top: 18px;
+}
+
+/* Sand bank with a foamy shoreline: closes the landing and host pages. */
+.shoreline {
+  position: relative;
+  height: 72px;
+  background: var(--color-sand);
+  margin-top: 8px;
+}
+.shoreline::before {
+  content: "";
+  position: absolute;
+  inset: -18px 0 auto 0;
+  height: 26px;
+  background: radial-gradient(14px 12px at 14px 26px, var(--color-sand) 13px, transparent 14px) 0 0 / 28px 26px repeat-x;
+  filter: drop-shadow(0 -3px 0 rgb(255 253 246 / 0.9));
+}
+
+/* The one button that matters on a screen: buoy yellow, ink text. */
+.btn-buoy {
+  background: var(--color-amber);
+  color: #12324a;
+  box-shadow: 0 4px 0 #c99a1f, 0 10px 20px -10px rgb(0 0 0 / 0.6);
+  transition: transform 80ms ease, box-shadow 80ms ease;
+}
+.btn-buoy:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #c99a1f, 0 6px 14px -10px rgb(0 0 0 / 0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lifeguard-flag { animation: none; }
+}
+
+/* Big screen: the ocean seen through the lifeguard tower's window — a painted sand frame. */
+.vs-stage {
+  border: 3px solid var(--color-sand);
+  box-shadow: 0 6px 0 var(--color-wet-sand), 0 18px 40px -20px rgb(2 30 38 / 0.8);
+}
+.vs-results-kicker {
+  font-family: var(--font-display);
+  font-weight: 700;
 }

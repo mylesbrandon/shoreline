@@ -1,16 +1,35 @@
 /**
  * Pure canvas drawing helpers: Red Flag Day beach art (sunny water, sandbars, rocks, jellyfish,
- * a rescue jet ski and a tourist on a giant inflatable seagull).
+ * a rescue jet ski, with opt-in person-in-the-water art for versus).
  * All inputs are in normalized map units; `size` is the canvas side length in CSS pixels.
  * Heading convention: 0 = north (up), clockwise positive — matches src/game/types.ts.
  * Hazard kinds keep their code names: reef = sandbar, rock = rocks, debris = jellyfish bloom.
  */
 import type { BoatState, Hazard, Marker, RescueTarget, Vec2 } from "@/game/types";
+import { hazardClass } from "@/game/versus/contract";
 import { BOAT } from "@/game/config";
 import { PALETTE } from "./palette";
+import { freshNavigatorMark, waterFlecks } from "./versus/scene-details";
 
+export interface SceneBoat {
+  id: string;
+  boat: BoatState;
+  tint: string;
+  opacity?: number;
+  label?: string;
+}
 export interface OceanScene {
   boat: BoatState;
+  /** Opt-in playtest visuals: co-op uses its existing art. */
+  versus?: boolean;
+  /** Optional versus deck colour; absent preserves the original co-op drawing. */
+  boatTint?: string;
+  /** Versus-only secondary boats; the Driver supplies only an engine-filtered rival. */
+  additionalBoats?: SceneBoat[];
+  /** Mission time for fresh Navigator marks, never a client wall clock. */
+  elapsedMs?: number;
+  /** Recent received positions for a cosmetic wake; no client simulation. */
+  wakeTrail?: Vec2[];
   hazards: Hazard[];
   markers: Marker[];
   target?: RescueTarget | null;
@@ -268,8 +287,8 @@ export function drawMarker(ctx: CanvasRenderingContext2D, cam: Camera, m: Marker
   ctx.fillRect(x - 9, y - 2, 18, 4);
 }
 
-/** The Gull: a tourist on a giant inflatable seagull, on a yellow float ring. */
-export function drawTarget(ctx: CanvasRenderingContext2D, cam: Camera, target: RescueTarget, timeMs: number): void {
+/** Legacy co-op target art, retained to preserve existing co-op screens. */
+function drawCoopTarget(ctx: CanvasRenderingContext2D, cam: Camera, target: RescueTarget, timeMs: number): void {
   const { x, y } = toScreen(cam, target.position);
   const r = target.rescueRadius * cam.scale;
   ctx.strokeStyle = PALETTE.amber;
@@ -312,7 +331,7 @@ export function drawTarget(ctx: CanvasRenderingContext2D, cam: Camera, target: R
 }
 
 /** Rescue jet ski: red and white, pointing along its heading, with a white wake. */
-export function drawBoat(ctx: CanvasRenderingContext2D, size: number, cam: Camera, boat: BoatState): void {
+export function drawBoat(ctx: CanvasRenderingContext2D, size: number, cam: Camera, boat: BoatState, boatTint?: string): void {
   const { x, y } = toScreen(cam, boat.position);
   const s = Math.max(10, size * 0.028);
   ctx.save();
@@ -344,8 +363,8 @@ export function drawBoat(ctx: CanvasRenderingContext2D, size: number, cam: Camer
   ctx.fill();
   ctx.stroke();
   ctx.shadowBlur = 0;
-  // Red deck stripe, seat and handlebars.
-  ctx.fillStyle = PALETTE.hazard;
+  // Default red deck is unchanged for co-op.
+  ctx.fillStyle = boatTint ?? PALETTE.hazard;
   ctx.beginPath();
   ctx.moveTo(0, -s * 1.0);
   ctx.quadraticCurveTo(s * 0.3, -s * 0.4, s * 0.25, s * 0.2);
@@ -388,7 +407,7 @@ export function drawCurrentArrow(ctx: CanvasRenderingContext2D, size: number, cu
 }
 
 /** Sun glare beyond the lookout circle, and solid colour beyond the map edge (sand at the shore). */
-function drawGlare(ctx: CanvasRenderingContext2D, size: number, cam: Camera, lookout: number): void {
+function drawGlare(ctx: CanvasRenderingContext2D, size: number, cam: Camera, lookout: number, dark = false): void {
   const tl = toScreen(cam, { x: 0, y: 0 });
   const br = toScreen(cam, { x: 1, y: 1 });
   ctx.fillStyle = "rgba(8, 48, 74, 0.92)";
@@ -402,6 +421,17 @@ function drawGlare(ctx: CanvasRenderingContext2D, size: number, cam: Camera, loo
   }
 
   const r = lookout * cam.scale;
+  if (dark) {
+    // Versus: vision fades to dark water instead of white sun glare (playtest r4: the white wall
+    // looked unnatural). Same clear radius, a softer three-stop falloff.
+    const v = ctx.createRadialGradient(size / 2, size / 2, r * 0.75, size / 2, size / 2, r * 1.4);
+    v.addColorStop(0, "rgba(3, 16, 26, 0)");
+    v.addColorStop(0.5, "rgba(3, 16, 26, 0.6)");
+    v.addColorStop(1, "rgba(3, 16, 26, 0.95)");
+    ctx.fillStyle = v;
+    ctx.fillRect(0, 0, size, size);
+    return;
+  }
   const g = ctx.createRadialGradient(size / 2, size / 2, r * 0.8, size / 2, size / 2, r * 1.3);
   g.addColorStop(0, "rgba(255, 250, 230, 0)");
   g.addColorStop(1, "rgba(255, 250, 230, 0.93)");
@@ -410,9 +440,33 @@ function drawGlare(ctx: CanvasRenderingContext2D, size: number, cam: Camera, loo
 }
 
 /** North marker: the window is north-up, so this is the only orientation cue. */
-function drawCompass(ctx: CanvasRenderingContext2D): void {
+function drawCompass(ctx: CanvasRenderingContext2D, seeThrough = false): void {
   const cx = 28;
   const cy = 28;
+  if (seeThrough) {
+    // Versus (playtest r5): an outline instead of a solid disc, drawn under the marks, so a warning
+    // marker in the top-left corner is never hidden behind the north pointer.
+    ctx.save();
+    ctx.globalAlpha = 0.6;
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 16, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = PALETTE.hazard;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - 12);
+    ctx.lineTo(cx + 5, cy);
+    ctx.lineTo(cx - 5, cy);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = PALETTE.foam;
+    ctx.font = "bold 10px monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("N", cx, cy + 12);
+    ctx.restore();
+    return;
+  }
   ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
   ctx.beginPath();
   ctx.arc(cx, cy, 16, 0, Math.PI * 2);
@@ -461,15 +515,196 @@ function drawEdgeArrow(ctx: CanvasRenderingContext2D, size: number, cam: Camera,
 export function drawScene(ctx: CanvasRenderingContext2D, size: number, scene: OceanScene, timeMs: number): void {
   const cam = cameraFor(size, scene);
   drawOcean(ctx, size, cam, timeMs, scene.stormIntensity ?? 0.3, !scene.window);
-  if (!scene.window) drawShore(ctx, size, cam, timeMs);
-  for (const h of scene.hazards) drawHazard(ctx, cam, h, timeMs);
-  for (const m of scene.markers) drawMarker(ctx, cam, m);
-  if (scene.target) drawTarget(ctx, cam, scene.target, timeMs);
-  if (scene.window) drawGlare(ctx, size, cam, scene.window.lookout);
-  drawBoat(ctx, size, cam, scene.boat);
+  if (scene.versus && scene.window) drawWorldWater(ctx, size, cam, scene.window.span, timeMs);
+  if (!scene.window) {
+    if (scene.versus) drawDock(ctx, size, cam);
+    else drawShore(ctx, size, cam, timeMs);
+  }
+  if (scene.versus && scene.wakeTrail) drawWakeTrail(ctx, cam, scene.wakeTrail, scene.boat.speed);
+  for (const h of scene.hazards) {
+    if (scene.versus && hazardClass(h.kind) === "land") drawLand(ctx, cam, h);
+    else drawHazard(ctx, cam, h, timeMs);
+  }
+  if (!scene.versus) for (const m of scene.markers) drawMarker(ctx, cam, m);
+  // Versus Driver window: the person goes ABOVE the glare. The engine sends them once their rescue
+  // ring reaches the lookout circle, i.e. often just outside the clear area, where the 93% glare
+  // would hide them until the instant of pickup.
+  const personOverGlare = scene.versus && scene.window;
+  if (scene.target && !personOverGlare) (scene.versus ? drawTarget : drawCoopTarget)(ctx, cam, scene.target, timeMs);
+  if (scene.window) drawGlare(ctx, size, cam, scene.window.lookout, scene.versus);
+  // Versus: the north pointer goes under the marks and boats (see drawCompass).
+  if (scene.window && scene.versus) drawCompass(ctx, true);
+  if (scene.target && personOverGlare) drawTarget(ctx, cam, scene.target, timeMs);
+  if (scene.versus) {
+    for (const m of scene.markers) drawNavigatorMark(ctx, size, cam, m, scene.elapsedMs ?? -1, timeMs);
+    for (const extra of scene.additionalBoats ?? []) {
+      ctx.save();
+      ctx.globalAlpha = extra.opacity ?? 1;
+      drawBoat(ctx, size, cam, extra.boat, extra.tint);
+      if (extra.label) {
+        const p = toScreen(cam, extra.boat.position);
+        ctx.fillStyle = extra.tint; ctx.strokeStyle = PALETTE.ink;
+        ctx.lineWidth = 3; ctx.textAlign = "center"; ctx.font = "bold 9px monospace";
+        ctx.strokeText(extra.label, p.x, p.y - 19);ctx.fillText(extra.label, p.x, p.y - 19);
+      }
+      ctx.restore();
+    }
+    drawSpeedStreaks(ctx, size, cam, scene.boat, timeMs);
+  }
+  drawBoat(ctx, size, cam, scene.boat, scene.boatTint);
   if (scene.window) {
     for (const m of scene.markers) if (m.kind === "target_guess") drawEdgeArrow(ctx, size, cam, m);
-    drawCompass(ctx);
+    if (!scene.versus) drawCompass(ctx);
   }
   if (scene.current) drawCurrentArrow(ctx, size, scene.current);
+}
+
+/** Versus land has a continuous shoreline; jellyfish keep the translucent pink renderer. */
+function drawLand(ctx: CanvasRenderingContext2D, cam: Camera, hazard: Hazard): void {
+  const { x, y } = toScreen(cam, hazard.position);
+  const r = hazard.radius * cam.scale;
+  ctx.save();
+  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = hazard.kind === "reef" ? "#806530" : "#293c49";
+  ctx.fillStyle = hazard.kind === "reef" ? PALETTE.sand : "#80909b";
+  ctx.beginPath();
+  if (hazard.kind === "reef") ctx.ellipse(x, y, r, r * 0.78, 0.4, 0, Math.PI * 2);
+  else {
+    for (let i = 0; i < 8; i++) {
+      const angle = i / 8 * Math.PI * 2;
+      const radius = r * (i % 2 ? .82 : 1);
+      if (!i) ctx.moveTo(x + Math.cos(angle) * radius, y + Math.sin(angle) * radius);
+      else ctx.lineTo(x + Math.cos(angle) * radius, y + Math.sin(angle) * radius);
+    }
+    ctx.closePath();
+  }
+  ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "rgba(255,255,255,.3)";
+  ctx.beginPath();ctx.ellipse(x-r*.2,y-r*.2,r*.45,r*.2,.4,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+}
+
+/** A waving person in an orange life ring; size remains legible in the small Driver window. */
+export function drawTarget(ctx: CanvasRenderingContext2D, cam: Camera, target: RescueTarget, timeMs: number): void {
+  const { x, y } = toScreen(cam, target.position);
+  const s = Math.max(8, Math.min(14, target.rescueRadius * cam.scale * .45));
+  ctx.save();ctx.translate(x,y);
+  ctx.strokeStyle = "rgba(255,255,255,.7)";ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.ellipse(0,s*.5,s*1.5,s*.7,0,0,Math.PI*2);ctx.stroke();
+  ctx.fillStyle = "#ff6f32";ctx.strokeStyle=PALETTE.ink;ctx.lineWidth=2;
+  ctx.beginPath();ctx.ellipse(0,s*.25,s*1.15,s*.7,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.fillStyle=PALETTE.deep;
+  ctx.beginPath();ctx.ellipse(0,s*.25,s*.55,s*.3,0,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle="#ffdec0";ctx.lineWidth=Math.max(3,s*.28);ctx.lineCap="round";
+  ctx.beginPath();ctx.moveTo(-s*.35,-s*.15);ctx.lineTo(-s*.85,-s*.65);ctx.stroke();
+  const wave = Math.sin(timeMs/200)*s*.18;
+  ctx.beginPath();ctx.moveTo(s*.2,-s*.2);ctx.lineTo(s*.7,-s*.8);ctx.lineTo(s*.75+wave,-s*1.4);ctx.stroke();
+  ctx.fillStyle="#ffdec0";ctx.strokeStyle=PALETTE.ink;ctx.lineWidth=1.3;
+  ctx.beginPath();ctx.arc(0,-s*.65,s*.4,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.restore();
+}
+
+// Reuse world cells while the camera remains in the same grid bounds; bounded for long sessions.
+const waterCache = new Map<string, ReturnType<typeof waterFlecks>>();
+/** A small, bounded grid: positions depend on map cells, never on frame or camera identity. */
+function drawWorldWater(ctx: CanvasRenderingContext2D, size: number, cam: Camera, span: number, timeMs: number): void {
+  const spacing=.014;
+  const key=[Math.floor(cam.ox/spacing),Math.floor(cam.oy/spacing),Math.ceil((cam.ox+span)/spacing),Math.ceil((cam.oy+span)/spacing)].join(":");
+  let flecks=waterCache.get(key);
+  if(!flecks) {
+    flecks=waterFlecks({x:cam.ox,y:cam.oy},span);
+    if(waterCache.size>=32) waterCache.delete(waterCache.keys().next().value!);
+    waterCache.set(key,flecks);
+  }
+  ctx.save();ctx.strokeStyle="rgba(255,255,255,.52)";ctx.lineWidth=1.2;
+  for (const fleck of flecks) {
+    const x=(fleck.x-cam.ox)*cam.scale,y=(fleck.y-cam.oy)*cam.scale;
+    if (x < -8 || y < -8 || x > size+8 || y > size+8) continue;
+    ctx.globalAlpha=.35 + fleck.strength*.5;
+    const length=2+fleck.strength*5;
+    ctx.beginPath();ctx.moveTo(x-length,y);
+    ctx.quadraticCurveTo(x,y-2,x+length,y);ctx.stroke();
+    if(fleck.strength>.8) {
+      const sparkle=.7+.3*Math.sin(timeMs/600+fleck.strength*20);
+      ctx.globalAlpha*=sparkle;
+      ctx.beginPath();ctx.moveTo(x,y-3);ctx.lineTo(x,y+3);ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+function drawWakeTrail(ctx: CanvasRenderingContext2D, cam: Camera, trail: Vec2[], speed: number): void {
+  if (speed <= .001 || trail.length < 2) return;
+  ctx.save();ctx.lineCap="round";ctx.strokeStyle="rgba(255,255,255,.45)";
+  for(let i=1;i<trail.length;i++) {
+    const a=toScreen(cam,trail[i-1]!),b=toScreen(cam,trail[i]!);
+    // Avoid a map-spanning slash when the host respawns a boat.
+    const distance=Math.hypot(a.x-b.x,a.y-b.y);
+    if(distance<.25 || distance>cam.scale*.08) continue;
+    ctx.globalAlpha=i/trail.length*.65;
+    ctx.lineWidth=1+(1-i/trail.length)*5;
+    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawSpeedStreaks(ctx: CanvasRenderingContext2D, size: number, cam: Camera, boat: BoatState, timeMs: number): void {
+  if(boat.throttle<.7 || boat.speed<BOAT.maxSpeed*.6) return;
+  const p=toScreen(cam,boat.position), s=Math.max(10,size*.028);
+  const speed=Math.min(1,boat.speed/(BOAT.maxSpeed*1.5));
+  ctx.save();ctx.translate(p.x,p.y);ctx.rotate(boat.heading);
+  ctx.strokeStyle="rgba(255,255,255,.65)";ctx.lineWidth=1.2;
+  for(let i=0;i<4;i++) {
+    const phase=((timeMs/450+i*.25)%1);
+    const x=(i%2?1:-1)*s*(1.4+(i%3)*.25);
+    const y=s*(.2+phase*3);
+    ctx.globalAlpha=(1-phase)*speed;
+    ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x,y+s*(.4+speed));ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawNavigatorMark(ctx: CanvasRenderingContext2D, size: number, cam: Camera, marker: Marker, elapsed: number, timeMs: number): void {
+  const p=toScreen(cam,marker.position);
+  const fresh=freshNavigatorMark(marker,elapsed);
+  if(marker.kind==="hazard") {
+    const pulse=fresh?1+.12*Math.sin(timeMs/100):1;
+    ctx.save();ctx.translate(p.x,p.y);ctx.scale(pulse,pulse);
+    ctx.fillStyle=PALETTE.amber;ctx.strokeStyle="#9d241e";ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(0,-12);ctx.lineTo(12,0);ctx.lineTo(0,12);ctx.lineTo(-12,0);ctx.closePath();ctx.fill();ctx.stroke();
+    ctx.fillStyle=PALETTE.ink;ctx.font="bold 16px monospace";ctx.textAlign="center";ctx.fillText("!",0,6);
+    ctx.restore();
+  } else {
+    // Radio's guess pin is not drawn in versus: the yellow-and-red buoy read as a person (playtest
+    // r4). The Driver still gets the amber edge arrow toward it (drawEdgeArrow).
+    return;
+  }
+  if(fresh && p.x>=0 && p.x<=size && p.y>=0 && p.y<=size) {
+    const x=Math.max(73,Math.min(size-73,p.x));
+    const y=Math.max(16,p.y-22);
+    ctx.save();ctx.fillStyle="rgba(8,48,74,.96)";ctx.fillRect(x-73,y-11,146,18);
+    ctx.fillStyle=PALETTE.foam;ctx.font="bold 9px monospace";ctx.textAlign="center";
+    ctx.fillText("MARKED BY NAVIGATOR",x,y+2);ctx.restore();
+  }
+}
+
+/** Versus-only jetty: blue berth west, red berth east. Legacy co-op shore stays untouched. */
+function drawDock(ctx: CanvasRenderingContext2D, size: number, cam: Camera): void {
+  const left=toScreen(cam,{x:.36,y:.91}),right=toScreen(cam,{x:.64,y:.91});
+  const shore=toScreen(cam,{x:0,y:.98}).y;
+  ctx.save();ctx.fillStyle=PALETTE.sand;ctx.fillRect(0,shore,size,size-shore);
+  const width=Math.max(8,size*.025);
+  ctx.fillStyle="#b89160";ctx.strokeStyle="#61472e";ctx.lineWidth=1.5;
+  for(const berth of [left,right]) {
+    ctx.fillRect(berth.x-width,berth.y,width*2,size-berth.y);
+    ctx.strokeRect(berth.x-width,berth.y,width*2,size-berth.y);
+    for(let y=berth.y;y<size;y+=6) {ctx.beginPath();ctx.moveTo(berth.x-width,y);ctx.lineTo(berth.x+width,y);ctx.stroke();}
+  }
+  ctx.fillStyle="#b89160";ctx.fillRect(left.x-width,shore,right.x-left.x+width*2,Math.max(8,size*.02));
+  for(const [berth,colour,label] of [[left,"#46b3ff","BLUE"],[right,"#ff5a4e","RED"]] as const) {
+    ctx.fillStyle=colour;ctx.fillRect(berth.x-width,berth.y,width*2,Math.max(4,size*.012));
+    ctx.font="bold 8px monospace";ctx.textAlign="center";ctx.strokeStyle=PALETTE.ink;ctx.lineWidth=3;
+    ctx.strokeText(label,berth.x,berth.y-5);ctx.fillText(label,berth.x,berth.y-5);
+  }
+  ctx.restore();
 }

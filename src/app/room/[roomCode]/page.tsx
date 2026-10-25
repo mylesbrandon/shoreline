@@ -1,6 +1,6 @@
+import { redirect } from "next/navigation";
 import { ROLES, type Role } from "@/game/types";
 import { normalizeRoomCode } from "@/lib/realtime/room-code";
-import { PlayerScreen } from "./PlayerScreen";
 import { StationPreview } from "./StationPreview";
 
 type PreviewTarget = Role | "spectator";
@@ -25,5 +25,8 @@ export default async function RoomPage({
 
   // ?preview=<role|spectator> renders a station with MOCK data — the sandbox for UI developers.
   if (preview) return <StationPreview target={preview} />;
-  return <PlayerScreen roomCode={code} initialName={typeof query.name === "string" ? query.name : ""} />;
+  // 2v2 is the only mode: an old co-op join link goes to the versus room for the same code.
+  // The co-op PlayerScreen stays in the repo (revert this to bring co-op back).
+  const name = typeof query.name === "string" ? `?name=${encodeURIComponent(query.name)}` : "";
+  redirect(`/versus/room/${code}${name}`);
 }

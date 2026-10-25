@@ -4,4 +4,6 @@
  */
 export { HostSession, type HostSessionOptions, type HostSnapshot } from "./host-session";
 export { PlayerSession, type PlayerSessionOptions, type PlayerSnapshot } from "./player-session";
+export { VersusHostSession, type VersusHostSessionOptions, type VersusHostSnapshot } from "./versus-host-session";
+export { VersusPlayerSession, type VersusPlayerSessionOptions, type VersusPlayerSnapshot } from "./versus-player-session";
 export { Store } from "./store";

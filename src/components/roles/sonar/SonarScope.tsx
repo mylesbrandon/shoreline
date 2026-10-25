@@ -2,26 +2,42 @@
 /**
  * Circular boat-centered sonar well. OWNER: Developer 4.
  * Taps emit a world-space position; the parent decides whether to send MARK_HAZARD.
+ * Versus extras (rival, coach pulse) are optional — co-op SonarStation leaves them unset.
  */
 import { useEffect, useRef } from "react";
 import type { PointerEvent } from "react";
 import type { SonarView, Vec2 } from "@/game/types";
-import { drawSonarScope, type ScopeRipple } from "./draw-scope";
+import { drawSonarScope, type ScopeDrawExtras, type ScopeRipple } from "./draw-scope";
 import { scopeToWorld, tapInWell } from "./scope-coords";
+import { ScopeLegend } from "./ScopeLegend";
 
 export interface SonarScopeProps {
   view: SonarView;
   onMark: (position: Vec2) => void;
   disabled?: boolean;
+  /** versus-3: rival boat position in map units. */
+  rival?: Vec2 | null;
+  rivalColor?: string;
+  /** Pulse the well until the Navigator marks their first hazard. */
+  coachPulse?: boolean;
 }
 
-export function SonarScope({ view, onMark, disabled = false }: SonarScopeProps) {
+export function SonarScope({
+  view,
+  onMark,
+  disabled = false,
+  rival = null,
+  rivalColor,
+  coachPulse = false,
+}: SonarScopeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const viewRef = useRef(view);
+  const extrasRef = useRef<ScopeDrawExtras>({ rival, rivalColor, coachPulse });
   const ripplesRef = useRef<ScopeRipple[]>([]);
 
   useEffect(() => {
     viewRef.current = view;
+    extrasRef.current = { rival, rivalColor, coachPulse };
   });
 
   useEffect(() => {
@@ -47,7 +63,9 @@ export function SonarScope({ view, onMark, disabled = false }: SonarScopeProps) 
     let raf = 0;
     const loop = (now: number) => {
       ripplesRef.current = ripplesRef.current.filter((r) => now - r.bornMs < 420);
-      if (size > 0) drawSonarScope(ctx, size, viewRef.current, now, ripplesRef.current, reducedMotion);
+      if (size > 0) {
+        drawSonarScope(ctx, size, viewRef.current, now, ripplesRef.current, reducedMotion, extrasRef.current);
+      }
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
@@ -71,12 +89,15 @@ export function SonarScope({ view, onMark, disabled = false }: SonarScopeProps) 
   };
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="block aspect-square w-full touch-none rounded-full"
-      role="img"
-      aria-label="Drone camera. Tap a hazard to mark it for the Driver."
-      onPointerDown={handlePointerDown}
-    />
+    <>
+      <canvas
+        ref={canvasRef}
+        className="block aspect-square w-full touch-none rounded-full"
+        role="img"
+        aria-label="Drone radar. Tap to mark an obstacle for your Driver."
+        onPointerDown={handlePointerDown}
+      />
+      <ScopeLegend />
+    </>
   );
 }

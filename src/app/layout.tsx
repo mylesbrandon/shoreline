@@ -1,25 +1,26 @@
 import type { Metadata, Viewport } from "next";
-import { Chakra_Petch, IBM_Plex_Mono } from "next/font/google";
+import { Baloo_2, Bowlby_One } from "next/font/google";
 import "./globals.css";
 
-const chakra = Chakra_Petch({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-chakra" });
-const plexMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "600"], variable: "--font-plex-mono" });
+// Baloo 2: rounded, friendly UI text. Bowlby One: chunky surf-shop poster lettering for big moments.
+const baloo = Baloo_2({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"], variable: "--font-baloo" });
+const bowlby = Bowlby_One({ subsets: ["latin"], weight: "400", variable: "--font-bowlby" });
 
 export const metadata: Metadata = {
   title: "Red Flag Day",
-  description: "A tourist on a giant inflatable seagull just drifted past the buoys. Four lifeguards, four phones, 90 seconds.",
+  description: "Swimmers are getting dragged past the buoys by the rip. Two crews, four phones, 120 seconds. Save the most swimmers.",
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#08304a",
+  themeColor: "#0f8a96",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${chakra.variable} ${plexMono.variable}`}>
+    <html lang="en" className={`${baloo.variable} ${bowlby.variable}`}>
       <body className="font-display antialiased">{children}</body>
     </html>
   );

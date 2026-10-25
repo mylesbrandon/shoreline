@@ -26,6 +26,9 @@ const KNOWN_TYPES = new Set<NetworkMessage["type"]>([
   "events",
   "action_rejected",
   "test",
+  "versus_room",
+  "versus_views",
+  "versus_events",
 ]);
 
 /** Cheap structural guard for anything arriving off the wire. Never trust payloads blindly. */
