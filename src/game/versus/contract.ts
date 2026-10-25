@@ -1,15 +1,15 @@
 /**
- * STORMLINE: RESCUE SHOWDOWN — SHARED 2v2 CONTRACT (versus-1)
+ * STORMLINE: RESCUE SHOWDOWN — SHARED 2v2 CONTRACT (versus-3)
  * ===========================================================
  * Frozen for parallel work. Every versus module (engine, host/player sessions, spectator UI,
  * navigator UI) depends on these types. Changes go through Developer 2 (integration lead) and
  * need all four developers' OK — see docs/versus/CONTRACTS.md.
  *
- * Design in one paragraph: one room, four phones, two teams. The host runs TWO independent
- * co-op GameStates (one per team) from the same seed, so both crews get the same reefs, gusts
- * and survivor sequence. Each world still has ONE survivor at a time (GameState.target); when a
- * team rescues it, its count goes up and the next survivor in the shared sequence appears.
- * One match clock ends both worlds together; most rescues wins.
+ * Design in one paragraph: one room, four phones, two teams, and ONE ocean. The host keeps a
+ * GameState per team, but both are the same seeded water and both hold the SAME survivor at the
+ * same time: the two crews race each other for that one person. The first boat to reach them
+ * scores, and then the next survivor in the shared sequence appears for both teams at once.
+ * One match clock ends the race for both; most rescues wins.
  *
  * Same conventions as src/game/types.ts: normalized map units, radians (0 = north, clockwise),
  * mission-time milliseconds, plain JSON-serializable data. Pure TypeScript: no React/DOM/network.
@@ -30,7 +30,7 @@ import type {
   Vec2,
 } from "../types";
 
-export const VERSUS_CONTRACT_VERSION = "versus-2" as const;
+export const VERSUS_CONTRACT_VERSION = "versus-3" as const;
 
 // ---------------------------------------------------------------------------
 // Teams, roles, lineup
@@ -128,7 +128,7 @@ export type MatchPhase = "briefing" | "countdown" | "active" | "ended";
 /** One rescue, as recorded by the engine. Exactly one per survivor actually reached. */
 export interface RescueEvent {
   team: TeamId;
-  /** 0-based index in the shared survivor sequence. The team's rescue count afterwards is survivorIndex + 1. */
+  /** 0-based index in the shared survivor sequence. Both teams race for the same survivor, so one team's indices can skip numbers (the rival got those). */
   survivorIndex: number;
   /** Where the boat picked them up (the survivor's drifted position). */
   position: Vec2;
@@ -220,6 +220,8 @@ export interface VersusCaptainView {
   captain: CaptainView;
   /** The survivor's position when within VERSUS.captainVisualRange of the boat, else null. Filtered only in src/game/engine/views.ts. */
   survivor: Vec2 | null;
+  /** The rival team's boat when it is inside this Driver's window (|dx|,|dy| <= VERSUS.captainWindowSpan / 2), else null. */
+  rival: Vec2 | null;
 }
 
 /**
@@ -234,6 +236,8 @@ export interface VersusNavigatorView {
   tick: number;
   sonar: SonarView;
   radio: RadioView;
+  /** The rival team's boat, always (both boats are on the shared spectator map anyway). */
+  rival: Vec2;
 }
 
 export type VersusRoleView = VersusCaptainView | VersusNavigatorView;

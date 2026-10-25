@@ -277,8 +277,17 @@ function teamViews(match: VersusMatchState, team: TeamId): TeamViews {
       role: "captain",
       captain: getCaptainView(state, VERSUS_CAPTAIN),
       survivor: getCaptainSurvivor(state, VERSUS.captainVisualRange),
+      // TODO(dev1): versus-3 — null until the rival is inside the Driver's window.
+      rival: null,
     },
-    navigator: { ...common, role: "navigator", sonar: getSonarView(state), radio: getRadioView(state) },
+    navigator: {
+      ...common,
+      role: "navigator",
+      sonar: getSonarView(state),
+      radio: getRadioView(state),
+      // TODO(dev1): versus-3 — the Navigator always sees the rival boat.
+      rival: match.teams[team === "blue" ? "red" : "blue"].state.boat.position,
+    },
   };
 }
 

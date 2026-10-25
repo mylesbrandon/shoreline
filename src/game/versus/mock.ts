@@ -141,12 +141,13 @@ function teamViewsAt(team: TeamId, tMs: number): TeamViews {
   const patch = { boat: boatAt(team, tMs), mission: missionAt(tMs), tick };
   const common = { team, matchId: "mock-match-1", tick };
   return {
-    captain: { ...common, role: "captain", captain: { ...MOCK_CAPTAIN_VIEW, ...patch }, survivor: null },
+    captain: { ...common, role: "captain", captain: { ...MOCK_CAPTAIN_VIEW, ...patch }, survivor: null, rival: null },
     navigator: {
       ...common,
       role: "navigator",
       sonar: { ...MOCK_SONAR_VIEW, ...patch },
       radio: { ...MOCK_RADIO_VIEW, ...patch },
+      rival: { x: 0.55, y: 0.9 },
     },
   };
 }
