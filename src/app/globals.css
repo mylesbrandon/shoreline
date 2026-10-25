@@ -108,6 +108,86 @@ body {
   }
 }
 
+/* Rescue Showdown: additive versus-only presentation; co-op rules above are unchanged. */
+.vs-stage { position:relative; padding:12px; border:2px solid var(--color-hull); border-radius:24px; background:var(--color-abyss); isolation:isolate; }
+.vs-board { display:grid; grid-template-columns:1fr minmax(90px, .8fr) 1fr; gap:8px; align-items:center; margin-bottom:12px; }
+.vs-board-team { position:relative; text-align:center; border-bottom:3px solid; padding:8px; border-radius:12px; }
+.vs-board-team p { font-weight:700; text-transform:uppercase; letter-spacing:.12em; font-size:clamp(11px,1.7vw,24px); }
+.vs-board-leading { background:linear-gradient(0deg,rgba(255,255,255,.10),transparent); box-shadow:inset 0 -14px 22px -24px currentColor; }
+.vs-score-number { position:relative; line-height:.95; }
+.vs-score-number>strong { display:inline-block; font-size:clamp(64px,8vw,136px); font-weight:800; font-variant-numeric:tabular-nums; }
+.vs-rescue-label { display:block; margin-top:5px; font:10px var(--font-mono); letter-spacing:.2em; }
+.vs-board-center { text-align:center; }
+.vs-eyebrow { font:10px var(--font-mono); text-transform:uppercase; letter-spacing:.18em; color:var(--color-mist); }
+.vs-board-center>strong { display:block; font:700 clamp(24px,4vw,64px)/1.3 var(--font-mono); font-variant-numeric:tabular-nums; color:var(--color-foam); }
+.vs-leader-label { display:block; font-size:clamp(10px,1.5vw,22px); font-weight:800; letter-spacing:.06em; }
+.vs-board-center>small { display:block; font-size:10px; color:var(--color-mist); }
+.vs-maps { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; }
+.vs-ocean-card { min-width:0; padding:8px; border:2px solid; border-radius:18px; background:var(--color-navy); }
+.vs-map-header { display:flex; justify-content:space-between; gap:8px; align-items:center; margin-bottom:8px; }
+.vs-map-header h3 { font-size:clamp(14px,1.4vw,22px); font-weight:700; }
+.vs-map-header>span { font:10px var(--font-mono); color:var(--color-mist); white-space:nowrap; }
+.vs-map-square { position:relative; aspect-ratio:1; width:100%; overflow:hidden; border-radius:12px; }
+.vs-map-footer { display:flex; gap:10px; align-items:center; margin-top:8px; font:10px var(--font-mono); color:var(--color-foam); }
+.vs-map-footer>div { flex:1; height:8px; border-radius:8px; overflow:hidden; background:var(--color-hull); }
+.vs-map-footer>div>div { height:100%; transition:width .2s; }
+.vs-stage-caption { margin-top:10px; text-align:center; font:10px var(--font-mono); color:var(--color-mist); text-transform:uppercase; letter-spacing:.15em; }
+.vs-countdown { position:absolute; inset:0; z-index:40; display:grid; place-items:center; text-align:center; background:rgba(4,10,22,.88); border-radius:inherit; pointer-events:none; }
+.vs-countdown strong { display:block; font-size:clamp(100px,20vw,240px); line-height:1.1; font-weight:800; color:var(--color-foam); animation:vs-count-in .6s both; }
+.vs-countdown-phone { position:fixed; border-radius:0; z-index:80; }
+.vs-go { background:rgba(4,10,22,.60); }
+.vs-go strong { color:var(--color-teal); }
+.vs-stage-urgent { border-color:var(--color-team-red); box-shadow:inset 0 0 28px rgba(255,111,97,.14),0 0 25px rgba(255,111,97,.2); }
+.vs-urgent-clock { color:var(--color-team-red)!important; animation:vs-clock-pulse 1s ease-in-out infinite; }
+.vs-score-pop { display:inline-block; animation:vs-score-pop .45s ease-out; }
+.vs-score-plus { position:absolute; left:68%; top:15%; font-size:clamp(24px,3vw,48px); font-weight:800; animation:vs-score-fly 1.8s both; }
+.vs-rescue-burst { position:absolute; z-index:4; transform:translate(-50%,-50%); display:grid; justify-items:center; pointer-events:none; text-shadow:0 2px 4px #040a16,0 0 5px #040a16; }
+.vs-rescue-burst i { position:absolute; top:50%; left:50%; border:4px solid currentColor; width:28px; height:28px; border-radius:50%; animation:vs-rescue-ring 1.8s both; }
+.vs-rescue-burst strong { font:bold 36px var(--font-display); animation:vs-score-fly 1.8s both; }
+.vs-rescue-burst span { font:bold 9px var(--font-mono); padding:2px 5px; border-radius:4px; background:#040a16; }
+.vs-lead-banner { position:absolute; top:48%; left:50%; transform:translate(-50%,-50%); z-index:20; width:max-content; max-width:95%; padding:16px 24px; text-align:center; font-size:clamp(18px,3vw,44px); font-weight:800; background:rgba(4,10,22,.96); border:2px solid currentColor; border-radius:14px; animation:vs-fade .3s both; }
+.vs-score-strip { display:flex; align-items:center; justify-content:space-between; height:54px; padding:0 10px; gap:6px; border:1px solid var(--color-hull); border-radius:12px; background:var(--color-abyss); }
+.vs-strip-team { display:flex; gap:7px; align-items:center; min-width:0; border-radius:8px; padding:4px; }
+.vs-strip-team>span { font:bold 11px var(--font-mono); display:flex; align-items:center; gap:4px; }
+.vs-strip-team>strong { font:bold 26px var(--font-mono); }
+.vs-strip-leading { text-shadow:0 0 14px currentColor; background:rgba(255,255,255,.06); }
+.vs-you { font-size:8px; border:1px solid currentColor; padding:2px; border-radius:3px; }
+.vs-strip-clock { font:bold 20px var(--font-mono); color:var(--color-foam); font-variant-numeric:tabular-nums; }
+.vs-strip-flash { animation:vs-strip-flash .65s both; }
+.vs-results-overlay { position:absolute; inset:0; z-index:50; display:grid; align-content:center; overflow:auto; padding:16px; border-radius:inherit; background:rgba(4,10,22,.95); }
+.vs-results { display:grid; justify-items:center; gap:12px; width:100%; padding:clamp(16px,3vw,40px); text-align:center; border:1px solid var(--color-hull); border-radius:20px; background:var(--color-abyss); }
+.vs-results-kicker { font:12px var(--font-mono); text-transform:uppercase; letter-spacing:.2em; color:var(--color-amber); }
+.vs-results h2 { font-weight:800; font-size:clamp(32px,5vw,80px); line-height:1.05; }
+.vs-results-subtitle { color:var(--color-mist); font-size:14px; }
+.vs-result-scores { width:100%; max-width:640px; display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:8px 0; }
+.vs-result-team { display:grid; gap:3px; padding:12px 6px; border:2px solid; border-radius:16px; background:var(--color-navy); }
+.vs-result-team>p { font-size:clamp(12px,1.7vw,22px); font-weight:700; }
+.vs-result-team>strong { font-size:clamp(52px,7vw,104px); line-height:1; font-weight:800; }
+.vs-result-team>span { text-transform:uppercase; letter-spacing:.15em; font:10px var(--font-mono); color:var(--color-foam); }
+.vs-result-team>small { margin-top:6px; font:11px var(--font-mono); color:var(--color-mist); }
+.vs-result-winner { background:linear-gradient(0deg,rgba(255,255,255,.12),transparent); }
+.vs-tiebreak { font-weight:700; color:var(--color-amber); }
+.vs-tiebreak span { display:block; margin-top:4px; font-size:11px; font-weight:400; color:var(--color-mist); }
+.vs-results-footer { width:100%; }
+@media(min-width:768px) {
+  .vs-stage { max-width:calc(min(100%,1200px)); margin-inline:auto; }
+  .vs-maps { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .vs-ocean-card { width:100%; max-width:calc(min(100%,100dvh - 368px)); justify-self:center; }
+}
+@keyframes vs-score-pop { 0% { transform:scale(.8); } 45% { transform:scale(1.2); } 100% { transform:scale(1); } }
+@keyframes vs-clock-pulse { 50% { opacity:.6; text-shadow:0 0 22px currentColor; } }
+@keyframes vs-score-fly { 0% { transform:translateY(25px) scale(.7); opacity:0; } 20% { opacity:1; } 100% { transform:translateY(-45px) scale(1.2); opacity:0; } }
+@keyframes vs-rescue-ring { 0% { transform:translate(-50%,-50%) scale(.4); opacity:1; } 100% { transform:translate(-50%,-50%) scale(4); opacity:0; } }
+@keyframes vs-count-in { from { transform:scale(1.25); opacity:.4; } to { transform:scale(1); opacity:1; } }
+@keyframes vs-fade { from { opacity:0; } to { opacity:1; } }
+@keyframes vs-strip-flash { 20% { box-shadow:0 0 20px var(--color-foam); background:var(--color-hull); } }
+@media(prefers-reduced-motion:reduce) {
+  .vs-stage *, .vs-score-strip *, .vs-countdown *, .vs-results *, .vs-strip-flash { animation:none!important; transition:none!important; }
+  .vs-score-plus, .vs-rescue-burst { animation:vs-fade .25s both!important; }
+}
+
+.vs-strip-team:nth-child(2) { flex-direction:row-reverse; }
+
 /* Navigator callout (Dev 4, versus) — shoutable on a 375 px phone */
 .navigator-callout {
   font-size: clamp(1.5rem, 7vw, 1.85rem); /* ≥ 24–28 px */
