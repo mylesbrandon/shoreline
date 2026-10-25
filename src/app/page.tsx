@@ -1,11 +1,8 @@
-import Link from "next/link";
 import { VERSUS } from "@/game/versus/contract";
 import { Wordmark } from "@/components/shared/Wordmark";
 import { HostButton, JoinForm } from "./LandingActions";
 import { resolveTransportKind } from "@/lib/realtime/env";
 import { ModeBadge } from "@/components/shared/ModeBadge";
-
-const practiceLink = "underline decoration-sand/60 underline-offset-4 hover:text-foam focus-visible:outline-2 focus-visible:outline-amber";
 
 export default function Home() {
   const mode = resolveTransportKind() === "supabase" ? "live" : "mock";
@@ -39,12 +36,6 @@ export default function Home() {
             <p className="text-base leading-snug">Scan the QR code on the laptop, or type the code under it.</p>
           </div>
         </section>
-
-        <p className="text-lg text-mist">
-          New to it? Practise as the <Link className={practiceLink} href="/versus/preview?view=captain">Driver</Link>, the{" "}
-          <Link className={practiceLink} href="/versus/preview?view=navigator">Navigator</Link>, or watch the{" "}
-          <Link className={practiceLink} href="/versus/preview?view=spectator">big screen</Link>.
-        </p>
       </main>
 
       <footer className="shoreline" aria-hidden />
