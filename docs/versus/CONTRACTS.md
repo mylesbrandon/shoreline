@@ -104,13 +104,13 @@ interface SpectatorMatchView { role: "spectator"; matchId; tick; scoreboard; tea
 ```
 
 - The nested co-op views are produced by the existing `getCaptainView` / `getSonarView` / `getRadioView` / `getSpectatorView` on that team's world, so `CaptainStation`, `SonarScope` and the radio grid render them unchanged.
-- **Hidden information** is unchanged and still decided only in `src/game/engine/views.ts`:
+- **Hidden information** is still decided only in `src/game/engine/views.ts`. The big-screen spectator view shows the live survivor while the match is active (`getLiveSpectatorView`); phones never get it except the existing Sonar contact / Driver survivor field:
   - No view contains `target`.
   - Exception 1: `sonar.contacts` may hold a `"gull"` contact (a snapshot from a ping in range), in the **Navigator** view only.
   - Exception 2 (versus-2, versus only): `VersusCaptainView.survivor` is the survivor's position while they are within `VERSUS.captainVisualRange` of that team's boat, and `null` otherwise.
   - Not hidden information (versus-3): the **rival boat**. `VersusCaptainView.rival` is the other team's boat while it is inside this Driver's window (`|dx|,|dy| <= VERSUS.captainWindowSpan / 2`), else `null`; `VersusNavigatorView.rival` is always that boat. Both boats are already on the shared spectator map, so neither field reveals anything new. It is a sibling of the nested co-op `captain` view, so the co-op `CaptainView` itself is unchanged and the co-op game is unaffected.
   - Apart from that field, the Captain view never gets it: `visibleHazards` only lists real hazards.
-  - The spectator's per-team `target` is `null` until that world ends.
+  - The spectator's per-team `target` is `null` in the lobby and countdown, live during play (big screen only), and the final position once the match ends.
 - The **scoreboard is public**: everyone sees both teams' counts and the clock. That's the live score pressure.
 - Weather is gone as a seat. Gusts still blow, identically for both teams (same seed). Nobody gets the forecast.
 

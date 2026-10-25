@@ -211,7 +211,8 @@ describe("versus: views", () => {
       assert.ok(!("target" in views[team].navigator.sonar));
     }
     const spectator = V.getSpectatorView(m);
-    assert.equal(spectator.teams.blue.target, null);
+    // The big screen shows the live survivor during play (audit r9); phones above never do.
+    assert.deepEqual(spectator.teams.blue.target, m.teams.blue.state.target);
     assert.equal(spectator.scoreboard.phase, "active");
   });
 });
@@ -913,5 +914,28 @@ describe("versus: radio signal levels across the board", () => {
     assert.equal(r.rejected, null);
     assert.equal(m.teams.blue.state.radio.readings[0]?.strength, 0.33);
     assert.ok(r.events.some((e) => e.type === "TEAM_GAME_EVENT" && e.event.type === "RADIO_SCANNED" && e.event.strength === 0.33));
+  });
+});
+
+describe("versus: the big screen shows the person, phones don't", () => {
+  test("spectator view has the live survivor while active, none before GO", () => {
+    assert.equal(V.getSpectatorView(fresh()).teams.blue.target, null, "lobby");
+    assert.equal(V.getSpectatorView(V.startMatch(fresh()).match).teams.red.target, null, "countdown");
+    let m = active();
+    m = run(m, 60);
+    const spectator = V.getSpectatorView(m);
+    for (const team of BOTH) {
+      assert.deepEqual(spectator.teams[team].target?.position, m.teams[team].state.target.position, `${team} live`);
+    }
+  });
+
+  test("no phone view gains the target", () => {
+    const views = V.getViews(run(active(), 30));
+    for (const team of BOTH) {
+      assert.ok(!("target" in views[team].captain.captain));
+      assert.ok(!("target" in views[team].navigator.sonar));
+      assert.ok(!("target" in views[team].navigator.radio));
+      assert.ok(!JSON.stringify(views[team].navigator).includes('"rescueRadius"'), "navigator: no target object");
+    }
   });
 });

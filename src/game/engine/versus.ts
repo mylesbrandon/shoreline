@@ -45,6 +45,7 @@ import { survivorSpawn } from "./survivors";
 import {
   getCaptainSurvivor,
   getCaptainView,
+  getLiveSpectatorView,
   getRadioView,
   getSonarView,
   getSpectatorView as getGameSpectatorView,
@@ -459,6 +460,7 @@ export function getScoreboard(match: VersusMatchState): MatchScoreboard {
 }
 
 export function getMatchSpectatorView(match: VersusMatchState): SpectatorMatchView {
+  const bigScreen = match.phase === "active" ? getLiveSpectatorView : getGameSpectatorView;
   const recentRescues = TEAMS.flatMap((team) => match.teams[team].rescueLog)
     .sort((a, b) => a.atMs - b.atMs)
     .slice(-VERSUS.recentRescuesKept);
@@ -467,7 +469,11 @@ export function getMatchSpectatorView(match: VersusMatchState): SpectatorMatchVi
     matchId: match.matchId,
     tick: match.tick,
     scoreboard: getScoreboard(match),
-    teams: { blue: getGameSpectatorView(match.teams.blue.state), red: getGameSpectatorView(match.teams.red.state) },
+    // The big screen shows the live survivor once play starts (views.ts decides; phones never get it).
+    teams: {
+      blue: bigScreen(match.teams.blue.state),
+      red: bigScreen(match.teams.red.state),
+    },
     recentRescues,
   };
 }

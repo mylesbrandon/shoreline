@@ -37,3 +37,10 @@
   .teamStatuses :global(.vs-map-footer)>div { flex-basis:100%; }
   .teamStatuses .ticker { height:40px; font-size:9px; }
 }
+
+/* Big screen: the live person, with a pulse ring and a "Crews can't see this" tag (audit r9). */
+.personTag { position:absolute; z-index:3; transform:translate(-50%,-50%); display:grid; justify-items:center; pointer-events:none; }
+.personTag i { display:block; width:46px; height:46px; border:2px solid var(--color-amber); border-radius:50%; animation:personPulse 1.8s ease-out infinite; }
+.personTag span { margin-top:-6px; transform:translateY(22px); white-space:nowrap; padding:2px 6px; border-radius:6px; background:rgba(7,63,77,.9); color:var(--color-amber); font:700 10px var(--font-display); }
+@keyframes personPulse { from { transform:scale(.6); opacity:.9; } to { transform:scale(1.5); opacity:0; } }
+@media(prefers-reduced-motion:reduce) { .personTag i { animation:none; opacity:.7; } }
