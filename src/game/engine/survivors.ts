@@ -15,16 +15,22 @@ import { createRng, randomBetween } from "./rng";
 
 /** Engine-owned tuning (not in config.ts: nothing outside the engine depends on it). */
 export const SURVIVORS = {
-  /** A new survivor spawns at least this far from the boat whenever a valid candidate allows it. */
+  /** A new survivor spawns at least this far from every boat whenever a valid candidate allows it. */
   minSpawnFromBoat: 0.35,
   /**
-   * Candidate points generated per survivor (bounded work for any seed). With 22 hazards only ~15%
-   * of the map clears the rescue-zone rule (less in the far half on some seeds), so 24 candidates
-   * found no far-enough survivor ~1 time in 8 and 128 ~1 in 350; 256 missed once in 16 000 probes
-   * (500 seeds × 8 survivors × 4 boat spots), and a miss still takes the farthest clear point.
-   * ~5 600 distance checks, only on a rescue.
+   * Fallback when no candidate is minSpawnFromBoat from BOTH versus boats (~10% of spawns: dense
+   * hazards and boats at opposite ends leave little room). Still > 3x the pickup radius, so no
+   * instant rescue; before this tier the worst miss was 0.09 from a boat.
    */
-  candidates: 256,
+  minSpawnFromAnyBoat: 0.2,
+  /**
+   * Candidate points generated per survivor (bounded work for any seed). With 22 hazards only ~15%
+   * of the map clears the rescue-zone rule. Versus spawns away from BOTH boats, which leaves less
+   * room: at 512 (with the minSpawnFromAnyBoat tier) 16 of 7 200 probes (300 seeds × 8 survivors ×
+   * 3 boat pairs) landed under 0.2 from a boat, the worst at 0.13 (still 2x the pickup radius).
+   * ~11 000 distance checks, only on a rescue.
+   */
+  candidates: 512,
 } as const;
 
 /** Used only if every candidate lands on a hazard (unreachable with real layouts). Up the beach from the start. */
@@ -36,19 +42,19 @@ const distance = (a: Vec2, b: Vec2) => Math.hypot(a.x - b.x, a.y - b.y);
 const survivorSeed = (seed: number, survivorIndex: number) => (seed ^ Math.imul(survivorIndex, 0x9e3779b1)) >>> 0;
 
 /**
- * Where survivor `survivorIndex` (0-based) of match `seed` appears.
+ * Where survivor `survivorIndex` (0-based) of match `seed` appears, at least
+ * SURVIVORS.minSpawnFromBoat from every boat in `boats` when a candidate allows it.
  *
- * The candidate list and the hazard filter depend only on (seed, index, hazards) — and hazard
- * positions/radii are identical in both teams' worlds — so both teams get the same survivor for
- * the same index. The boat filter is the one input that can differ between teams: it only exists
- * so a survivor never spawns next to (or on) the boat that just made a rescue, which would give an
- * instant second rescue. It picks a different candidate only if the boats are in different places.
+ * The candidate list and the hazard filter depend only on (seed, index, hazards), and hazard
+ * positions/radii are identical in both teams' worlds. Versus spawns each survivor once for the
+ * whole match (both crews race for it) and passes both boats, so the boat filter keeps it away
+ * from everyone: a survivor next to (or under) a boat would be an instant pickup.
  */
 export function survivorSpawn(
   seed: number,
   survivorIndex: number,
   hazards: Hazard[],
-  boat: Vec2,
+  boats: Vec2 | readonly Vec2[],
   rescueRadius: number = TARGET.rescueRadius,
 ): Vec2 {
   if (survivorIndex <= 0) return generateLayout(seed).target;
@@ -65,9 +71,15 @@ export function survivorSpawn(
     if (!blocked) clear.push(p);
   }
 
-  const far = clear.find((p) => distance(p, boat) >= SURVIVORS.minSpawnFromBoat);
+  // With several boats (versus: both crews race for the same survivor), "far from the boat" means
+  // far from the nearest one, so nobody gets an instant pickup.
+  const all: readonly Vec2[] = Array.isArray(boats) ? boats : [boats as Vec2];
+  const fromBoats = (p: Vec2) => Math.min(...all.map((b) => distance(p, b)));
+  const far =
+    clear.find((p) => fromBoats(p) >= SURVIVORS.minSpawnFromBoat) ??
+    clear.find((p) => fromBoats(p) >= SURVIVORS.minSpawnFromAnyBoat);
   if (far) return far;
   let best: Vec2 | undefined;
-  for (const p of clear) if (!best || distance(p, boat) > distance(best, boat)) best = p;
+  for (const p of clear) if (!best || fromBoats(p) > fromBoats(best)) best = p;
   return best ?? { ...FALLBACK_SPAWN };
 }

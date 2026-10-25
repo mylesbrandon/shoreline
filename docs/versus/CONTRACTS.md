@@ -71,10 +71,12 @@ interface MatchResult { winner: TeamId | null /* null = tie */; scores: Record<T
 5. When `elapsedMs` reaches `durationMs`, the phase becomes `"ended"` and `result = { winner: decideWinner(scores), ... }`.
 6. Reset is `createMatch` again with a new `matchId`. Phones treat a new `matchId` as a new stream (`ViewOrderTracker`).
 
-**Survivors: one at a time, respawning.** Each world keeps the co-op single `GameState.target`. When a team reaches it:
-- the engine records exactly one `RescueEvent` and `rescues += 1`;
-- the world stays `"active"`;
-- `target.position` moves to the next survivor in the shared sequence.
+**One ocean, one survivor, two boats racing for them (versus-3).** The host still keeps a `GameState` per team, but both are the same seeded water and both hold the **same survivor at the same time**. The crews race each other for that one person. When a boat reaches them:
+- the engine records exactly one `RescueEvent` for that team and `rescues += 1`;
+- both worlds stay `"active"`;
+- `target.position` moves to the next survivor in the shared sequence **for both teams at once** — the rival loses that one and the race restarts on the next.
+
+Because both teams chase the same person, a single team's `RescueEvent.survivorIndex` values can **skip numbers**: the gaps are the ones the rival reached first. Don't assume a team's indices are contiguous, and don't derive a team's count from the latest index — use `TeamWorld.rescues`.
 
 That sequence is deterministic from `(seed, survivorIndex)`, so both teams see the same survivor locations in the same order. This reuses Radio signal strength, Sonar's Gull contact, Gull drift and the co-op hidden-information rules without turning `target` into an array. Dev 1 owns how it works; the baseline adapter freezes a world after its first rescue.
 
@@ -105,7 +107,8 @@ interface SpectatorMatchView { role: "spectator"; matchId; tick; scoreboard; tea
 - **Hidden information** is unchanged and still decided only in `src/game/engine/views.ts`:
   - No view contains `target`.
   - Exception 1: `sonar.contacts` may hold a `"gull"` contact (a snapshot from a ping in range), in the **Navigator** view only.
-  - Exception 2 (versus-2, versus only): `VersusCaptainView.survivor` is the survivor's position while they are within `VERSUS.captainVisualRange` of that team's boat, and `null` otherwise. It is a sibling of the nested co-op `captain` view, so the co-op `CaptainView` itself is unchanged and the co-op game is unaffected.
+  - Exception 2 (versus-2, versus only): `VersusCaptainView.survivor` is the survivor's position while they are within `VERSUS.captainVisualRange` of that team's boat, and `null` otherwise.
+  - Not hidden information (versus-3): the **rival boat**. `VersusCaptainView.rival` is the other team's boat while it is inside this Driver's window (`|dx|,|dy| <= VERSUS.captainWindowSpan / 2`), else `null`; `VersusNavigatorView.rival` is always that boat. Both boats are already on the shared spectator map, so neither field reveals anything new. It is a sibling of the nested co-op `captain` view, so the co-op `CaptainView` itself is unchanged and the co-op game is unaffected.
   - Apart from that field, the Captain view never gets it: `visibleHazards` only lists real hazards.
   - The spectator's per-team `target` is `null` until that world ends.
 - The **scoreboard is public**: everyone sees both teams' counts and the clock. That's the live score pressure.

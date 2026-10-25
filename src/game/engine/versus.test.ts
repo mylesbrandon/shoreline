@@ -6,7 +6,7 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { getCaptainView, step as stepGame, versusEngine as V } from "./index";
-import { VERSUS_RULES } from "./versus";
+import { dockFor, VERSUS_RULES } from "./versus";
 import { SURVIVORS, survivorSpawn } from "./survivors";
 import { BOAT, CAPTAIN, MISSION, NETWORK, TARGET } from "../config";
 import {
@@ -250,9 +250,12 @@ function assertInvariants(m: VersusMatchState) {
   for (const team of BOTH) {
     const w = m.teams[team];
     assert.equal(w.rescues, w.rescueLog.length, `${team}: rescues === rescueLog.length`);
-    w.rescueLog.forEach((r, i) => assert.equal(r.survivorIndex, i, `${team}: rescue ${i} index`));
     if (m.phase === "active") assert.equal(w.state.mission.elapsedMs, m.elapsedMs, `${team}: clock`);
   }
+  // One shared survivor sequence: every index 0..n-1 was rescued exactly once, by one crew.
+  const indices = BOTH.flatMap((team) => m.teams[team].rescueLog.map((r) => r.survivorIndex)).sort((a, b) => a - b);
+  assert.deepEqual(indices, indices.map((_, i) => i), "survivor indices are 0..n-1 across both crews");
+  assert.deepEqual(m.teams.blue.state.target, m.teams.red.state.target, "both crews chase the same survivor");
 }
 
 describe("versus: survivors respawn", () => {
@@ -288,11 +291,14 @@ describe("versus: survivors respawn", () => {
     assert.ok(Math.hypot(picked.x - parked.teams.blue.state.boat.position.x, picked.y - parked.teams.blue.state.boat.position.y) < 0.01);
   });
 
-  test("the next survivor spawns valid and away from the rescuing boat", () => {
+  test("the next survivor spawns valid and away from both boats", () => {
     const m = V.step(editWorld(active(), "blue", parkOnSurvivor), DT).match;
     const s = m.teams.blue.state;
-    assert.deepEqual(s.target.position, survivorSpawn(m.seed, 1, s.hazards, s.boat.position, s.target.rescueRadius));
-    assert.ok(Math.hypot(s.target.position.x - s.boat.position.x, s.target.position.y - s.boat.position.y) >= SURVIVORS.minSpawnFromBoat);
+    const boats = [s.boat.position, m.teams.red.state.boat.position];
+    assert.deepEqual(s.target.position, survivorSpawn(m.seed, 1, s.hazards, boats, s.target.rescueRadius));
+    for (const b of boats) {
+      assert.ok(Math.hypot(s.target.position.x - b.x, s.target.position.y - b.y) >= SURVIVORS.minSpawnFromBoat);
+    }
   });
 
   test("staying parked after a rescue for 30 steps doesn't count again", () => {
@@ -307,13 +313,19 @@ describe("versus: survivors respawn", () => {
     assert.equal(m.teams.blue.rescues, 1);
   });
 
-  test("both teams get identical survivors 1..5 when they rescue from the same spots", () => {
+  test("both boats on the survivor in the same step: one rescue only, both chase the next one", () => {
     let m = active();
     for (let i = 1; i <= 5; i++) {
-      m = V.step(editWorld(editWorld(m, "blue", parkOnSurvivor), "red", parkOnSurvivor), DT).match;
-      assert.deepEqual(m.teams.blue.state.target, m.teams.red.state.target, `survivor ${i}`);
-      assert.deepEqual([m.teams.blue.rescues, m.teams.red.rescues], [i, i]);
+      const r = V.step(editWorld(editWorld(m, "blue", parkOnSurvivor), "red", parkOnSurvivor), DT);
+      m = r.match;
+      assert.equal(count(r.events, "SURVIVOR_RESCUED"), 1, `race ${i}: one rescue`);
+      assert.equal(m.teams.blue.rescues + m.teams.red.rescues, i);
+      assert.equal(m.teams.blue.state.mission.phase, "active");
+      assert.equal(m.teams.red.state.mission.phase, "active");
+      assertInvariants(m);
     }
+    // Exact ties go to the crew with fewer rescues, so a dead heat alternates.
+    assert.deepEqual([m.teams.blue.rescues, m.teams.red.rescues], [3, 2]);
   });
 
   test("a rescue clears the old survivor's readings, guess pin and Gull contact; hazard marks stay", () => {
@@ -365,7 +377,7 @@ describe("versus: wipeouts", () => {
     );
     assert.equal(count(r.events, "SURVIVOR_RESCUED"), 0);
     const blue = m.teams.blue;
-    assert.deepEqual(blue.state.boat.position, MISSION.boatStart);
+    assert.deepEqual(blue.state.boat.position, dockFor("blue"));
     assert.equal(blue.state.boat.heading, MISSION.boatStartHeading);
     assert.equal(blue.state.boat.speed, 0);
     assert.equal(blue.state.boat.hull, BOAT.startHull);
@@ -551,7 +563,7 @@ describe("versus: land runs you aground, only jellyfish hurt", () => {
       );
       const blue = m.teams.blue;
       assert.equal(blue.state.boat.hull, 60, "land never damages the hull");
-      assert.deepEqual(blue.state.boat.position, MISSION.boatStart);
+      assert.deepEqual(blue.state.boat.position, dockFor("blue"));
       assert.equal(blue.state.boat.speed, 0);
       assert.deepEqual([blue.state.boat.throttle, blue.state.boat.rudder], [1, 0.4]);
       assert.equal(blue.wipeouts, 1);
@@ -687,5 +699,118 @@ describe("versus: the Driver sees less, but sees the person up close", () => {
     assert.equal(V.getViews(m).blue.captain.captain.visibleHazards.length, 1);
     m = at(m, m.elapsedMs + 200);
     assert.equal(V.getViews(m).blue.captain.captain.visibleHazards.length, 0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Playtest round 3 (contract versus-3): one shared ocean, one survivor, a race
+// ---------------------------------------------------------------------------
+
+describe("versus: both crews race for the same survivor", () => {
+  test("blue's rescue moves the survivor for red too and clears red's tracking", () => {
+    let m = active();
+    // Red has been tracking the survivor: a scan, a pin and (close by) a drone contact.
+    m = editWorld(m, "red", (s) => ({
+      ...s,
+      boat: { ...s.boat, position: { x: s.target.position.x, y: s.target.position.y + s.target.rescueRadius * 2 } },
+    }));
+    m = act(m, { team: "red", role: "navigator" }, { type: "SONAR_PING" });
+    m = act(m, { team: "red", role: "navigator" }, { type: "RADIO_SCAN", sector: "B2" });
+    m = act(m, { team: "red", role: "navigator" }, { type: "MARK_TARGET", position: { x: 0.3, y: 0.3 } });
+    m = act(m, { team: "red", role: "navigator" }, { type: "MARK_HAZARD", position: { x: 0.6, y: 0.6 } });
+    assert.ok(m.teams.red.state.sonar.contacts.some((c) => c.kind === "gull"), "setup: red's drone saw the person");
+    const old = m.teams.blue.state.target.position;
+
+    const r = V.step(editWorld(m, "blue", parkOnSurvivor), DT);
+    m = r.match;
+    const rescued = r.events.filter((e) => e.type === "SURVIVOR_RESCUED");
+    assert.equal(rescued.length, 1);
+    assert.ok(rescued[0]?.type === "SURVIVOR_RESCUED" && rescued[0].rescue.team === "blue");
+    assert.deepEqual([m.teams.blue.rescues, m.teams.red.rescues], [1, 0]);
+
+    const red = m.teams.red.state;
+    assert.deepEqual(red.target, m.teams.blue.state.target, "red now chases blue's next survivor");
+    assert.notDeepEqual(red.target.position, old);
+    assert.deepEqual(red.radio.readings, []);
+    assert.ok(!red.markers.some((mk) => mk.kind === "target_guess"));
+    assert.ok(red.markers.some((mk) => mk.kind === "hazard"), "red's hazard marks stay");
+    assert.ok(!red.sonar.contacts.some((c) => c.kind === "gull"));
+    assert.equal(red.mission.phase, "active");
+    assertInvariants(m);
+  });
+
+  test("both reach the survivor in the same step: the closer boat scores", () => {
+    const m = editWorld(editWorld(active(), "blue", (s) => ({
+      ...s,
+      boat: { ...s.boat, position: { x: s.target.position.x, y: s.target.position.y + VERSUS_RULES.rescueRadius * 0.8 } },
+    })), "red", parkOnSurvivor);
+    const r = V.step(m, DT);
+    const rescued = r.events.filter((e) => e.type === "SURVIVOR_RESCUED");
+    assert.equal(rescued.length, 1);
+    assert.ok(rescued[0]?.type === "SURVIVOR_RESCUED" && rescued[0].rescue.team === "red");
+    assert.deepEqual([r.match.teams.blue.rescues, r.match.teams.red.rescues], [0, 1]);
+    assert.equal(r.match.teams.blue.state.mission.phase, "active", "the loser keeps racing");
+  });
+
+  test("survivor indices are shared: 0, 1, 2 across both crews", () => {
+    let m = active();
+    m = V.step(editWorld(m, "red", parkOnSurvivor), DT).match;
+    m = V.step(editWorld(m, "blue", parkOnSurvivor), DT).match;
+    m = V.step(editWorld(m, "blue", parkOnSurvivor), DT).match;
+    assert.deepEqual(m.teams.red.rescueLog.map((r) => r.survivorIndex), [0]);
+    assert.deepEqual(m.teams.blue.rescueLog.map((r) => r.survivorIndex), [1, 2]);
+    assertInvariants(m);
+  });
+
+  test("the survivor stays identical in both worlds while it drifts", () => {
+    let m = editWorld(editWorld(active(), "blue", openWaterKeepTarget), "red", openWaterKeepTarget);
+    m = act(m, BLUE_CAPTAIN, { type: "SET_THROTTLE", throttle: 1 });
+    for (let i = 0; i < 300; i++) {
+      m = V.step(m, DT).match;
+      assert.deepEqual(m.teams.blue.state.target, m.teams.red.state.target);
+    }
+  });
+});
+
+/** Like openWater, but keeps the real survivor (so it drifts with the current). */
+function openWaterKeepTarget(s: GameState): GameState {
+  return { ...s, hazards: [] };
+}
+
+describe("versus: docks and the rival boat", () => {
+  test("each crew starts at its own dock berth, side by side", () => {
+    const m = fresh();
+    assert.deepEqual(m.teams.blue.state.boat.position, dockFor("blue"));
+    assert.deepEqual(m.teams.red.state.boat.position, dockFor("red"));
+    assert.ok(dockFor("blue").x < MISSION.boatStart.x && dockFor("red").x > MISSION.boatStart.x);
+    assert.equal(dockFor("blue").y, MISSION.boatStart.y);
+  });
+
+  test("a wipeout sends the crew back to its own berth", () => {
+    const m = V.step(editWorld(active(), "red", onJellyWithHull(5)), DT).match;
+    assert.deepEqual(m.teams.red.state.boat.position, dockFor("red"));
+  });
+
+  test("the Navigator always sees the rival boat; the Driver only inside the window", () => {
+    const place = (blue: Vec2, red: Vec2) =>
+      editWorld(
+        editWorld(active(), "blue", (s) => ({ ...s, boat: { ...s.boat, position: blue } })),
+        "red",
+        (s) => ({ ...s, boat: { ...s.boat, position: red } }),
+      );
+    const half = VERSUS.captainWindowSpan / 2;
+
+    const far = V.getViews(place({ x: 0.3, y: 0.5 }, { x: 0.7, y: 0.5 }));
+    assert.deepEqual(far.blue.navigator.rival, { x: 0.7, y: 0.5 });
+    assert.deepEqual(far.red.navigator.rival, { x: 0.3, y: 0.5 });
+    assert.equal(far.blue.captain.rival, null);
+    assert.equal(far.red.captain.rival, null);
+
+    const near = V.getViews(place({ x: 0.5, y: 0.5 }, { x: 0.5 + half * 0.9, y: 0.5 - half * 0.9 }));
+    assert.deepEqual(near.blue.captain.rival, { x: 0.5 + half * 0.9, y: 0.5 - half * 0.9 });
+    assert.deepEqual(near.red.captain.rival, { x: 0.5, y: 0.5 });
+
+    const edge = V.getViews(place({ x: 0.5, y: 0.5 }, { x: 0.5 + half * 1.1, y: 0.5 }));
+    assert.equal(edge.blue.captain.rival, null, "just outside the window on one axis");
   });
 });

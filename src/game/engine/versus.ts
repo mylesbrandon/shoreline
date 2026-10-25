@@ -6,8 +6,10 @@
  * Two ordinary co-op GameStates (one per team) built from the same seed and stepped with the same
  * dtMs, so physics, collisions, sonar, radio and hidden-information rules are reused unchanged.
  *
- * Each world keeps the co-op single survivor (GameState.target). A rescue counts once and the next
- * survivor in the shared sequence (./survivors.ts) appears. Touching land (sandbars, rocks) runs
+ * Both crews share one ocean and race for ONE survivor at a time (contract versus-3): each world
+ * keeps an identical copy of it in the co-op GameState.target. The first boat to reach it scores
+ * (resolveRescue), then the next survivor in the shared sequence (./survivors.ts) appears in both
+ * worlds. Each crew starts and respawns at its own dock berth (dockFor). Touching land (sandbars, rocks) runs
  * the boat aground and jellyfish stings taking the hull to 0 wreck it; both are wipeouts that
  * respawn the boat at the start. Either way the world stays active until the shared clock ends
  * the match. Versus-only tuning (VERSUS_RULES) is passed into the co-op step and views, whose
@@ -32,7 +34,7 @@ import type {
   VersusViews,
 } from "../versus/contract";
 import { BOAT, MISSION } from "../config";
-import type { GameState, PlayerAction, PlayerActionType, Role } from "../types";
+import type { GameState, PlayerAction, PlayerActionType, Role, Vec2 } from "../types";
 import { applyAction as applyGameAction } from "./actions";
 import { scoreMission } from "./score";
 import { createInitialState } from "./state";
@@ -68,7 +70,17 @@ export const VERSUS_RULES = {
   rescueRadius: 0.06,
   /** A drone contact also shows on the Driver's screen this long (co-op: 5 s). */
   captainSonarRevealMs: 3_000,
+  /** Both crews share one ocean, so each has its own dock berth this far left (blue) / right (red) of MISSION.boatStart. */
+  dockOffsetX: 0.05,
 } as const;
+
+/** Where a team's boat starts and respawns. */
+export function dockFor(team: TeamId): Vec2 {
+  const side = team === "blue" ? -1 : 1;
+  return { x: MISSION.boatStart.x + side * VERSUS_RULES.dockOffsetX, y: MISSION.boatStart.y };
+}
+
+const RIVAL: Record<TeamId, TeamId> = { blue: "red", red: "blue" };
 
 const VERSUS_STEP: StepTuning = { boatSpeedFactor: VERSUS_RULES.boatSpeedFactor };
 const VERSUS_CAPTAIN: CaptainViewOptions = {
@@ -82,6 +94,7 @@ function createWorld(team: TeamId, seed: number, matchId: string): TeamWorld {
     team,
     state: {
       ...state,
+      boat: { ...state.boat, position: dockFor(team) },
       target: { ...state.target, rescueRadius: VERSUS_RULES.rescueRadius },
       mission: { ...state.mission, durationMs: VERSUS.matchDurationMs },
     },
@@ -148,14 +161,11 @@ function resume(state: GameState): GameState {
   return { ...state, mission: { ...mission, phase: "active", failureReason: null, score: null } };
 }
 
-/** The next survivor appears and everything that tracked the old one is cleared. */
-function nextSurvivor(state: GameState, seed: number, survivorIndex: number): GameState {
+/** The survivor moves to `position` and everything this crew had on the old one is cleared. */
+function moveSurvivor(state: GameState, position: Vec2): GameState {
   return {
     ...state,
-    target: {
-      ...state.target,
-      position: survivorSpawn(seed, survivorIndex, state.hazards, state.boat.position, state.target.rescueRadius),
-    },
+    target: { ...state.target, position: { ...position } },
     // lastScanAtMs stays, so the scan cooldown still holds across a rescue.
     radio: { ...state.radio, readings: [] },
     markers: state.markers.filter((m) => m.kind !== "target_guess"),
@@ -163,11 +173,11 @@ function nextSurvivor(state: GameState, seed: number, survivorIndex: number): Ga
   };
 }
 
-/** Back to the start, stopped, with `hull`. Throttle and rudder are kept so the Driver's controls stay truthful. */
-function respawn(state: GameState, hull: number): GameState {
+/** Back to the crew's dock, stopped, with `hull`. Throttle and rudder are kept so the Driver's controls stay truthful. */
+function respawn(state: GameState, team: TeamId, hull: number): GameState {
   const boat = {
     ...state.boat,
-    position: { x: MISSION.boatStart.x, y: MISSION.boatStart.y },
+    position: dockFor(team),
     heading: MISSION.boatStartHeading,
     speed: 0,
     hull,
@@ -175,7 +185,13 @@ function respawn(state: GameState, hull: number): GameState {
   return resume({ ...state, boat });
 }
 
-function stepWorld(world: TeamWorld, seed: number, dtMs: number, events: MatchEvent[]): TeamWorld {
+interface WorldStep {
+  world: TeamWorld;
+  /** This boat reached the shared survivor this step (and didn't wipe out). The match decides who scores. */
+  reached: boolean;
+}
+
+function stepWorld(world: TeamWorld, dtMs: number, events: MatchEvent[]): WorldStep {
   const wasActive = world.state.mission.phase === "active";
   const r = stepGame(world.state, dtMs, VERSUS_STEP);
 
@@ -198,36 +214,73 @@ function stepWorld(world: TeamWorld, seed: number, dtMs: number, events: MatchEv
     if (event.type === "HAZARD_HIT") jellyDamage += event.damage;
     events.push({ type: "TEAM_GAME_EVENT", team: world.team, event });
   }
-  if (!wasActive) return { ...world, state: r.state };
+  if (!wasActive) return { world: { ...world, state: r.state }, reached: false };
   const elapsedMs = r.state.mission.elapsedMs;
   // Recomputed rather than read from the co-op step, which also took land damage. (A sting in the
   // same step as a land hit that already drained the co-op hull is lost; the boat is aground anyway.)
   const hull = Math.max(0, world.state.boat.hull - jellyDamage);
 
   // Precedence, like co-op's "sunk beats rescue": wrecked > aground > rescue > timeout. The
-  // survivor stays where it is on a wipeout; the trip back from the start is the penalty.
+  // survivor stays where it is on a wipeout; the trip back from the dock is the penalty.
   if (hull <= 0 || aground) {
     const cause = hull <= 0 ? "wrecked" : "aground";
     events.push({ type: "BOAT_WIPEOUT", team: world.team, atMs: elapsedMs, cause });
-    return { ...world, state: respawn(r.state, cause === "wrecked" ? BOAT.startHull : hull), wipeouts: world.wipeouts + 1 };
+    const state = respawn(r.state, world.team, cause === "wrecked" ? BOAT.startHull : hull);
+    return { world: { ...world, state, wipeouts: world.wipeouts + 1 }, reached: false };
   }
-  if (r.state.mission.phase === "victory") {
-    const rescue: RescueEvent = {
-      team: world.team,
-      survivorIndex: world.rescues,
-      position: { ...r.state.target.position },
-      atMs: elapsedMs,
-    };
-    events.push({ type: "SURVIVOR_RESCUED", rescue });
+  return { world: { ...world, state: r.state }, reached: r.state.mission.phase === "victory" };
+}
+
+/**
+ * Both crews race for ONE survivor (contract versus-3). Each world holds an identical copy of it
+ * (same spawn, same drift from the same currents and hazards), so whoever reached it this step is
+ * known per world. The closer boat wins a same-step race; an exact tie goes to the crew with fewer
+ * rescues, then blue (deterministic). The next survivor then appears in BOTH worlds, away from
+ * both boats, and both crews' tracking of the old one is cleared.
+ */
+function resolveRescue(
+  steps: Record<TeamId, WorldStep>,
+  seed: number,
+  events: MatchEvent[],
+): Record<TeamId, TeamWorld> {
+  const { blue, red } = steps;
+  const racers = TEAMS.filter((team) => steps[team].reached);
+  if (racers.length === 0) return { blue: blue.world, red: red.world };
+
+  const gap = (team: TeamId) => {
+    const s = steps[team].world.state;
+    return Math.hypot(s.boat.position.x - s.target.position.x, s.boat.position.y - s.target.position.y);
+  };
+  const [winner] = [...racers].sort(
+    (a, b) => gap(a) - gap(b) || steps[a].world.rescues - steps[b].world.rescues || (a === "blue" ? -1 : 1),
+  );
+  if (!winner) return { blue: blue.world, red: red.world };
+
+  const won = steps[winner].world;
+  const survivorIndex = blue.world.rescues + red.world.rescues;
+  const atMs = won.state.mission.elapsedMs;
+  const rescue: RescueEvent = { team: winner, survivorIndex, position: { ...won.state.target.position }, atMs };
+  events.push({ type: "SURVIVOR_RESCUED", rescue });
+
+  const next = survivorSpawn(
+    seed,
+    survivorIndex + 1,
+    won.state.hazards,
+    [blue.world.state.boat.position, red.world.state.boat.position],
+    won.state.target.rescueRadius,
+  );
+  const settle = (world: TeamWorld): TeamWorld => {
+    const scored = world.team === winner;
     return {
       ...world,
-      state: resume(nextSurvivor(r.state, seed, world.rescues + 1)),
-      rescues: world.rescues + 1,
-      lastRescueAtMs: elapsedMs,
-      rescueLog: [...world.rescueLog, rescue],
+      // A crew that also reached the survivor but lost the race is back to "active" too.
+      state: resume(moveSurvivor(world.state, next)),
+      rescues: scored ? world.rescues + 1 : world.rescues,
+      lastRescueAtMs: scored ? atMs : world.lastRescueAtMs,
+      rescueLog: scored ? [...world.rescueLog, rescue] : world.rescueLog,
     };
-  }
-  return { ...world, state: r.state };
+  };
+  return { blue: settle(blue.world), red: settle(red.world) };
 }
 
 function teamScore(world: TeamWorld): TeamScore {
@@ -258,7 +311,8 @@ export function stepMatch(match: VersusMatchState, dtMs: number): MatchStepResul
   if (match.phase !== "active") return { match, events: [] };
 
   const events: MatchEvent[] = [];
-  const teams = mapTeams(match, (w) => stepWorld(w, match.seed, dtMs, events));
+  const steps = { blue: stepWorld(match.teams.blue, dtMs, events), red: stepWorld(match.teams.red, dtMs, events) };
+  const teams = resolveRescue(steps, match.seed, events);
   const elapsedMs = Math.min(match.elapsedMs + dtMs, match.durationMs);
   const next: VersusMatchState = { ...match, tick: match.tick + 1, elapsedMs, teams };
   if (elapsedMs < match.durationMs) return { match: next, events };
@@ -268,8 +322,16 @@ export function stepMatch(match: VersusMatchState, dtMs: number): MatchStepResul
   return { match: { ...next, phase: "ended", result }, events: [...events, { type: "MATCH_ENDED", result }] };
 }
 
+/** Inside the Driver's boat-centred window (contract versus-3: |dx|, |dy| <= captainWindowSpan / 2). */
+function inWindow(boat: Vec2, other: Vec2): boolean {
+  const half = VERSUS.captainWindowSpan / 2;
+  return Math.abs(other.x - boat.x) <= half && Math.abs(other.y - boat.y) <= half;
+}
+
 function teamViews(match: VersusMatchState, team: TeamId): TeamViews {
   const state = match.teams[team].state;
+  // Not hidden information: both boats are on the shared spectator map.
+  const rival = match.teams[RIVAL[team]].state.boat.position;
   const common = { team, matchId: match.matchId, tick: match.tick };
   return {
     captain: {
@@ -277,8 +339,15 @@ function teamViews(match: VersusMatchState, team: TeamId): TeamViews {
       role: "captain",
       captain: getCaptainView(state, VERSUS_CAPTAIN),
       survivor: getCaptainSurvivor(state, VERSUS.captainVisualRange),
+      rival: inWindow(state.boat.position, rival) ? { ...rival } : null,
     },
-    navigator: { ...common, role: "navigator", sonar: getSonarView(state), radio: getRadioView(state) },
+    navigator: {
+      ...common,
+      role: "navigator",
+      sonar: getSonarView(state),
+      radio: getRadioView(state),
+      rival: { ...rival },
+    },
   };
 }
 

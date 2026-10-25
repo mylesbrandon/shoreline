@@ -6,7 +6,7 @@ export default function NotFound() {
       <h1 className="text-4xl font-bold">Swept off the beach</h1>
       <p className="text-mist">That page drifted past the buoys.</p>
       <Link href="/" className="text-teal underline underline-offset-4">
-        Back to Tower 4
+        Back to the dock
       </Link>
     </main>
   );

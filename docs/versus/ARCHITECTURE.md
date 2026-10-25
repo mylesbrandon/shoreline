@@ -30,7 +30,7 @@
                     └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Two independent worlds, one match.** Each team gets an ordinary co-op `GameState` built from the **same seed**. Physics, collisions, Sonar, Radio, Gull drift and hidden-information filtering are reused unchanged. There's no boat-to-boat interaction, by design.
+- **One ocean, two boats racing (versus-3).** Each team gets an ordinary co-op `GameState` built from the **same seed**, and both hold the **same survivor at the same time**: the crews race for that one person, and when either reaches them the next survivor appears for both. Physics, collisions, Sonar, Radio, Gull drift and hidden-information filtering are reused unchanged. The boats still don't collide or otherwise interact — they only compete for the survivor — but each seat now sees the rival: `VersusNavigatorView.rival` always, `VersusCaptainView.rival` only while the rival is inside the Driver's window.
 - **One clock.** `versusEngine.step` advances both worlds by the same `dtMs` on the same tick. The countdown (3 s) ends on one tick for both. The match ends at `VERSUS.matchDurationMs` (120 s).
 - **Navigator = Sonar + Radio in one seat.** The engine maps Navigator sweeps to the co-op `"sonar"` sender and Navigator scans to `"radio"`, so co-op permission and cooldown rules apply as they are. Captain = the existing Driver. The Weather seat is dropped; gusts still hit both boats identically.
 - **Respawning survivor, not an array.** We keep the single `GameState.target`. On a rescue, the count goes up and the target jumps to survivor #n+1 of a sequence derived from `(seed, n)`. Compared with multiple survivors at once:
