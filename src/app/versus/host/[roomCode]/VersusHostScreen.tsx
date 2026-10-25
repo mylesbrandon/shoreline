@@ -20,6 +20,8 @@ import { Wordmark } from "@/components/shared/Wordmark";
 import { TEAM_INFO, VERSUS_ROLE_INFO } from "@/components/shared/teams";
 import { VersusSpectatorDisplay } from "@/components/ocean/versus/VersusSpectatorDisplay";
 import { VersusResults } from "@/components/ocean/versus/VersusResults";
+import { SoundToggle } from "@/components/shared/audio/SoundToggle";
+import { useHostMusic } from "@/lib/audio/use-host-music";
 
 const seatKey = (s: PlayerTeamAssignment) => `${s.team}:${s.role}`;
 
@@ -30,6 +32,7 @@ export function VersusHostScreen({ roomCode, lanOrigin = null }: { roomCode: str
   );
   const snap = useStore(session.store);
   const isMock = session.transportKind === "mock";
+  const music = useHostMusic(snap.spectator.scoreboard);
 
   useEffect(() => {
     session.start().catch(() => {
@@ -53,6 +56,7 @@ export function VersusHostScreen({ roomCode, lanOrigin = null }: { roomCode: str
             <Wordmark />
           </Link>
           <div className="flex items-center gap-2">
+            <SoundToggle kind="music" muted={music.muted} unlocked={music.unlocked} onToggle={music.toggleMute} />
             <span className="font-mono text-xs uppercase tracking-[0.3em] text-mist">Rescue Showdown · 2v2</span>
             <ModeBadge mode={isMock ? "mock" : "live"} />
           </div>
