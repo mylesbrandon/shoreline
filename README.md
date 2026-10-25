@@ -1,88 +1,62 @@
-# Stormline
+# Red Flag Day
 
-**Four players. Four perspectives. One rescue mission.**
+The rip is pulling swimmers past the buoys. Two lifeguard crews of two race to bring them in. Each crew has a **Driver**, who steers a rescue jet ski but can only see a small circle around it, and a **Navigator**, who works a drone (sweeps that reveal sandbars, rocks and jellyfish, plus up to two hazard marks on the Driver's screen) and the beach radio (scans that say how warm each square is, and a pin for their best guess). Both crews race for the **same** swimmer on the **same** map. Whoever reaches them first scores, and the next swimmer appears for both. Most rescues in 120 seconds wins.
 
-A browser-based cooperative ocean-rescue game for HowdyHack 2026. A host laptop shows the storm; four players join from their phones as **Captain**, **Sonar**, **Weather** and **Radio**. Each sees a different slice of the truth. Talk, steer, and reach the stranded *Gull* before the 90-second clock runs out.
+Built in ~24 hours for HowdyHack 2026 by four developers.
+
+## How to play
+
+1. Open the site on a laptop and press **Host a game**. The laptop is the big screen.
+2. Four phones scan the QR code (or type the room code) and join. The laptop seats them: Blue Driver, Red Driver, Blue Navigator, Red Navigator.
+3. Read your seat card, then the host presses **Blow the whistle**.
+4. Navigators talk their Drivers through the reefs to the swimmer. Touch land and you go back to the dock; jellyfish sting your hull.
 
 ## Quick start
 
-```bash
-git clone https://github.com/<OWNER>/stormline.git
-cd stormline
-npm install
-npm run dev
-```
+- **Play:** `<production URL>`. You need one laptop and four phones on any network.
+- **Run locally:**
 
-Open <http://localhost:3000>. With no Supabase keys the app runs in **mock mode** (clearly labeled, single device):
+  ```bash
+  npm install
+  cp .env.example .env.local    # fill in NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY
+  npm run dev:lan               # phones on the same Wi-Fi open http://<laptop-ip>:3000
+  ```
 
-- `/` — landing page (host a rescue / join with a code)
-- `/host/ABCD` — host + spectator screen (QR code, crew list, ocean)
-- `/room/ABCD` — player phone screen
-- `/room/DEMO?preview=captain` (or `sonar`, `weather`, `radio`, `spectator`) — station sandboxes with animated mock data and an on-screen action log
-
-For real multiplayer, add Supabase Realtime keys:
-
-```bash
-cp .env.example .env.local    # then fill in NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY
-npm run dev:lan               # phones on the same Wi-Fi open http://<laptop-ip>:3000
-```
-
-Full instructions: [docs/DEPLOY.md](docs/DEPLOY.md).
-
-## Scripts
-
-| | |
-|---|---|
-| `npm run dev` | dev server |
-| `npm run dev:lan` | dev server reachable from phones on your network |
-| `npm run typecheck` | strict TypeScript check |
-| `npm run lint` | ESLint |
-| `npm test` | unit tests (engine, protocol, sessions) |
-| `npm run build` | production build |
-| `npm run check` | everything above — run before every PR |
+  Without Supabase keys the app runs in a clearly labelled single-device mock mode. `/versus/preview` shows every screen with scripted data.
+- **Check everything:** `npm run check` (typecheck + lint + tests + production build).
 
 ## How it works
 
 ```
-Phone (Captain) ─┐                         ┌─> Phone: CaptainView
-Phone (Sonar)   ─┼─ PlayerAction ─┐   ┌────┼─> Phone: SonarView
-Phone (Weather) ─┤   (Supabase    ▼   │    ├─> Phone: WeatherView
-Phone (Radio)   ─┘    Broadcast)  Host laptop └─> Phone: RadioView
-                                  HostSession
-                                  └─ engine.applyAction / engine.step (30 Hz)
-                                  └─ engine.getRoleViews → broadcast (10 Hz)
+ phones (4)                         host laptop                                  phones
+ ─────────                          ───────────                                  ──────
+ PlayerAction ──► Supabase ──► VersusHostSession ──► versusEngine.step()  ──► per-seat views ──► Supabase ──► render
+ (steer, sweep,   Realtime     (the ONLY simulation)  two deterministic         (views.ts filters   Realtime    (props in,
+  mark, scan)                                         team worlds, one          what each seat              actions out)
+                                                      shared survivor           may see)
 ```
 
-- **Host-authoritative**: one browser runs the only simulation; phones never simulate.
-- **Pure engine** (`src/game/engine`): deterministic TypeScript, unit tested, no React/network.
-- **Hidden information**: each role gets a filtered view; nobody's view contains the rescue target.
-- **Transport interface** (`src/lib/realtime`): `MockRoomTransport` for offline work, `SupabaseRoomTransport` for live play.
+- **Pure, seeded engine** (`src/game/engine/`): no clock, no `Math.random`, no input mutation. The same seed and inputs always produce the same match, which keeps the tests simple. Each crew has its own world (physics, sonar, radio), and `resolveRescue` keeps one shared survivor in sync across both.
+- **Hidden information is filtered in one place** (`src/game/engine/views.ts`). Phones never get the swimmer's position, except a drone contact when a sweep catches them and the Driver's close-up view. The laptop's big screen shows it live.
+- **Reef formations with a path check** (`src/game/engine/formations.ts`): walls with gaps and horseshoes built from ordinary hazards. Each formation is kept only if a flood fill proves both docks can still reach the swimmer, and later swimmers only spawn where the docks can reach.
+- **Two hazard marks per crew, enforced by the engine** (`applyMatchAction` in `src/game/engine/versus.ts`). Tapping a mark removes it, a third mark is refused, and the radio pin never counts.
+- **238 tests** (`node:test`) across the engine, protocol, sessions, audio cues and UI helpers. All pass in `npm run check`.
+
+Also in the build: beach-themed UI; host music plus per-phone sound effects and haptics; a countdown synced to its audio; and an end-of-match beach landing where the rescued swimmers step off one by one.
 
 ## Project layout
 
-```
-src/
-  app/                      routes: /, /host/[roomCode], /room/[roomCode]       (Dev 2)
-  components/
-    shared/                 mode badge, QR, role metadata, RoleStation          (Dev 2)
-    ocean/                  canvas renderer, spectator display                  (Dev 3)
-    captain/                captain station + helm                              (Dev 3)
-    roles/                  sonar / weather / radio stations + instrument kit   (Dev 4)
-  game/
-    types.ts config.ts sectors.ts   SHARED CONTRACTS (team agreement to change)
-    mock-state.ts                   mock fixtures for UI and tests
-    engine/                         simulation and rules                        (Dev 1)
-  lib/
-    realtime/               transports, protocol, room codes, identity          (Dev 2)
-    game-client/            HostSession, PlayerSession, store, hooks            (Dev 2)
-docs/                       VISION, MVP, CONTRACTS, TEAM, TASKS, DEMO, DEPLOY
-AGENTS.md, CLAUDE.md        rules for coding agents
-```
+| Path | What |
+|---|---|
+| `src/game/engine/` | Pure game engine: co-op core, versus rules (`versus.ts`), formations, survivors, views |
+| `src/game/versus/contract.ts` | Shared 2v2 types, tuning and the `VersusEngine` interface |
+| `src/lib/realtime/`, `src/lib/game-client/` | Supabase transport, protocol, host and phone sessions |
+| `src/lib/audio/` | Host music and phone sound effects |
+| `src/app/versus/` | Host (`/versus/host/[code]`), phone (`/versus/room/[code]`) and preview routes |
+| `src/components/` | Driver, Navigator, big-screen and shared UI |
 
-## Team docs
-
-[Vision](docs/VISION.md) · [MVP](docs/MVP.md) · [Contracts](docs/CONTRACTS.md) · [Team](docs/TEAM.md) · [First tasks](docs/TASKS.md) · [Demo](docs/DEMO.md) · [Deploy](docs/DEPLOY.md)
+The original four-role co-op mode ("Stormline": Captain, Sonar, Weather, Radio) is still in the code as **legacy**. Its routes redirect to 2v2, so it isn't reachable from the site.
 
 ## Tech
 
-Next.js (App Router) · TypeScript (strict) · Tailwind CSS v4 · HTML Canvas · Supabase Realtime (Broadcast + Presence) · Vercel · lucide-react · qrcode.react
+Next.js 16, React 19, TypeScript (strict), Tailwind CSS v4, Supabase Realtime (broadcast + presence, no database), deployed on Vercel. Setup details: `docs/DEPLOY.md`. Rules for contributors and coding agents: `AGENTS.md`.
