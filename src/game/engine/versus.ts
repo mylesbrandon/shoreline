@@ -40,7 +40,7 @@ import { applyAction as applyGameAction, validateAction } from "./actions";
 import { scoreMission } from "./score";
 import { createInitialState } from "./state";
 import { step as stepGame, type StepTuning } from "./step";
-import { besideFormation, landBetween, reachability, withFormations } from "./formations";
+import { besideFormation, landBetween, reachability, withFormations, withJellies } from "./formations";
 import { survivorSpawn } from "./survivors";
 import {
   getCaptainSurvivor,
@@ -130,7 +130,10 @@ const DOCKS: readonly Vec2[] = [dockFor("blue"), dockFor("red")];
 function createWorld(team: TeamId, seed: number, matchId: string): TeamWorld {
   const state = createInitialState({ seed, gameId: matchId });
   // Same seed and inputs for both crews, so both worlds get the identical reef field.
-  const hazards = withFormations(seed, state.hazards, DOCKS, state.target.position, VERSUS_RULES.rescueRadius);
+  const hazards = withJellies(
+    seed,
+    withFormations(seed, state.hazards, DOCKS, state.target.position, VERSUS_RULES.rescueRadius),
+  );
   return {
     team,
     state: {
