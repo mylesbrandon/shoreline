@@ -5,7 +5,7 @@
  */
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { getCaptainView, step as stepGame, versusEngine as V } from "./index";
+import { createInitialState, getCaptainView, step as stepGame, versusEngine as V } from "./index";
 import { dockFor, VERSUS_RULES } from "./versus";
 import { SURVIVORS, survivorSpawn } from "./survivors";
 import { BOAT, CAPTAIN, MISSION, NETWORK, TARGET } from "../config";
@@ -553,7 +553,7 @@ const hullHits = (events: MatchEvent[]) =>
 
 describe("versus: land runs you aground, only jellyfish hurt", () => {
   for (const kind of ["reef", "rock"] as const) {
-    test(`touching ${kind === "reef" ? "a sandbar" : "rocks"} runs aground: back at the start, hull untouched`, () => {
+    test(`touching ${kind === "reef" ? "a sandbar" : "rocks"} runs aground: back at the dock, repaired`, () => {
       let m = editWorld(active(), "blue", (s) => onHazardWithHull(kind, 60)({ ...s, boat: { ...s.boat, throttle: 1, rudder: 0.4 } }));
       const r = stepEvents(m);
       m = r.match;
@@ -562,22 +562,22 @@ describe("versus: land runs you aground, only jellyfish hurt", () => {
         [{ type: "BOAT_WIPEOUT", team: "blue", atMs: m.elapsedMs, cause: "aground" }],
       );
       const blue = m.teams.blue;
-      assert.equal(blue.state.boat.hull, 60, "land never damages the hull");
+      assert.equal(blue.state.boat.hull, BOAT.startHull, "back at the dock with a full hull");
       assert.deepEqual(blue.state.boat.position, dockFor("blue"));
       assert.equal(blue.state.boat.speed, 0);
       assert.deepEqual([blue.state.boat.throttle, blue.state.boat.rudder], [1, 0.4]);
       assert.equal(blue.wipeouts, 1);
       assert.equal(blue.state.mission.phase, "active");
       assert.deepEqual(hullHits(r.events).map((h) => h.damage), [0], "the hit is reported with no damage");
-      assert.equal(V.getScoreboard(m).scores.blue.hull, 60);
+      assert.equal(V.getScoreboard(m).scores.blue.hull, BOAT.startHull);
     });
   }
 
-  test("land with a low hull still runs aground (no wreck, hull kept)", () => {
+  test("land with a low hull still counts as aground (not wrecked), and comes back repaired", () => {
     const r = V.step(editWorld(active(), "red", onHazardWithHull("rock", 10)), DT);
     const wipeout = r.events.find((e) => e.type === "BOAT_WIPEOUT");
     assert.ok(wipeout?.type === "BOAT_WIPEOUT" && wipeout.cause === "aground");
-    assert.equal(r.match.teams.red.state.boat.hull, 10);
+    assert.equal(r.match.teams.red.state.boat.hull, BOAT.startHull);
   });
 
   test("a jellyfish sting costs hull but the boat keeps going", () => {
@@ -812,5 +812,20 @@ describe("versus: docks and the rival boat", () => {
 
     const edge = V.getViews(place({ x: 0.5, y: 0.5 }, { x: 0.5 + half * 1.1, y: 0.5 }));
     assert.equal(edge.blue.captain.rival, null, "just outside the window on one axis");
+  });
+});
+
+describe("versus: weaker currents", () => {
+  test(`base current and every gust are ${VERSUS_RULES.currentFactor}× the seeded co-op weather`, () => {
+    const coop = createInitialState({ seed: 7, gameId: "g" }).weather;
+    const versus = fresh().teams.blue.state.weather;
+    const scaled = (v: Vec2) => ({ x: v.x * VERSUS_RULES.currentFactor, y: v.y * VERSUS_RULES.currentFactor });
+    assert.deepEqual(versus.current, scaled(coop.current));
+    assert.equal(versus.forecast.length, coop.forecast.length);
+    versus.forecast.forEach((entry, i) => {
+      assert.equal(entry.atMs, coop.forecast[i]?.atMs);
+      assert.deepEqual(entry.current, scaled(coop.forecast[i]?.current ?? { x: NaN, y: NaN }));
+    });
+    assert.deepEqual(fresh().teams.red.state.weather, versus, "identical for both crews");
   });
 });
