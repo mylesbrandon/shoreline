@@ -188,3 +188,33 @@ export const MOCK_MOMENTS = {
   finalCountdown: VERSUS.countdownMs + VERSUS.matchDurationMs - VERSUS.finalCountdownMs,
   results: VERSUS.countdownMs + VERSUS.matchDurationMs,
 } as const;
+
+/**
+ * Additive fixture for Navigator callout tests / manual checks: boat heading north,
+ * a fresh gull contact dead ahead (12 o'clock, CLOSE).
+ */
+export function mockNavigatorGullDeadAhead(team: TeamId = "blue"): VersusViews[TeamId]["navigator"] {
+  const base = teamViewsAt(team, MOCK_MOMENTS.start + 5_000).navigator;
+  const now = base.sonar.mission.elapsedMs;
+  const boat = { ...base.sonar.boat, position: { x: 0.5, y: 0.55 }, heading: 0 };
+  return {
+    ...base,
+    sonar: {
+      ...base.sonar,
+      boat,
+      contacts: [
+        {
+          hazardId: "gull",
+          position: { x: 0.5, y: 0.48 },
+          radius: 0.04,
+          kind: "gull",
+          detectedAtMs: now,
+        },
+      ],
+      lastPingAtMs: now,
+      lastPingOrigin: { ...boat.position },
+      pingReadyAtMs: now + 3_000,
+    },
+    radio: { ...base.radio, boat },
+  };
+}
