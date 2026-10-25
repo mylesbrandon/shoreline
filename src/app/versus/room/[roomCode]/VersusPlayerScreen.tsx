@@ -19,6 +19,9 @@ import { VersusRoleStation } from "@/components/shared/VersusRoleStation";
 import { TEAM_INFO, VERSUS_ROLE_INFO, VERSUS_ROLE_STEPS } from "@/components/shared/teams";
 import { MatchScoreStrip } from "@/components/ocean/versus/MatchScoreStrip";
 import { VersusResults } from "@/components/ocean/versus/VersusResults";
+import { SoundToggle } from "@/components/shared/audio/SoundToggle";
+import { disposeSharedPhoneSfx, unlockPhoneAudioFromGesture } from "@/lib/audio/sfx";
+import { usePhoneSfx } from "@/lib/audio/use-phone-sfx";
 
 /** See PlayerScreen: storage can only be read after mount, so "checking" covers that one frame. */
 type Boarding =
@@ -58,6 +61,8 @@ export function VersusPlayerScreen({ roomCode, initialName }: { roomCode: string
     );
   }, [isMock, roomCode, initialName]);
 
+  useEffect(() => () => disposeSharedPhoneSfx(), []);
+
   return (
     <main className="mx-auto grid min-h-dvh max-w-xl content-start gap-4 px-4 py-4">
       <header className="flex items-center justify-between">
@@ -80,6 +85,7 @@ export function VersusPlayerScreen({ roomCode, initialName }: { roomCode: string
           className="instrument grid gap-4 rounded-3xl p-5"
           onSubmit={(e) => {
             e.preventDefault();
+            unlockPhoneAudioFromGesture();
             join(saveIdentity(roomCode, boarding.name.trim() || "Lifeguard"));
           }}
         >
@@ -168,6 +174,11 @@ function SeatCard({ slot, teammate }: { slot: PlayerTeamAssignment; teammate: st
 
 function SeatedView({ session }: { session: VersusPlayerSession }) {
   const snap = useStore(session.store);
+  const sfx = usePhoneSfx({
+    recentEvents: snap.recentEvents,
+    scoreboard: snap.scoreboard,
+    slot: snap.me?.slot ?? null,
+  });
 
   useEffect(() => {
     session.start().catch(() => {
@@ -178,7 +189,12 @@ function SeatedView({ session }: { session: VersusPlayerSession }) {
     };
   }, [session]);
 
-  const banner = <ConnectionBanner status={snap.status} error={snap.error} />;
+  const banner = (
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <ConnectionBanner status={snap.status} error={snap.error} />
+      <SoundToggle kind="sfx" muted={sfx.muted} unlocked={sfx.unlocked} onToggle={sfx.toggleMute} />
+    </div>
+  );
   const slot = snap.me?.slot ?? null;
   // The other seat on my team, so the wait screen can name who I'm shouting at.
   const teammate =
