@@ -28,8 +28,8 @@ export function MissionResults({ mission, footer }: { mission: MissionState; foo
   return (
     <section className="instrument grid justify-items-center gap-3 rounded-2xl p-6 text-center">
       <p className="font-mono text-xs uppercase tracking-[0.3em] text-mist">{won ? "Rescue complete" : "Rescue failed"}</p>
-      <h2 className={`text-4xl font-bold ${won ? "text-teal" : "text-hazard"}`}>{won ? "Seagull secured!" : "The rip took them"}</h2>
-      {won && <p className="text-mist">The tourist owes you a smoothie.</p>}
+      <h2 className={`text-4xl font-bold ${won ? "text-teal" : "text-hazard"}`}>{won ? "Swimmer safe!" : "The rip took them"}</h2>
+      {won && <p className="text-mist">They&apos;re back on the sand, shaken but breathing.</p>}
       {!won && mission.failureReason && <p className="text-mist">{FAILURE_COPY[mission.failureReason]}</p>}
       {score && (
         <>
