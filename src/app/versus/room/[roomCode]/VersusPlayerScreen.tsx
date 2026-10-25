@@ -114,12 +114,11 @@ function MockNotice() {
     <div className="grid gap-3">
       <ModeBadge mode="mock" />
       <p className="instrument rounded-2xl p-5 text-mist">
-        Supabase isn&apos;t configured, so this phone can&apos;t reach a host. Mock mode never pretends devices are
-        synchronized. Configure <code>.env.local</code> (see docs/DEPLOY.md), or open the{" "}
+        This build has no multiplayer connection, so this phone can&apos;t reach a host. Open the{" "}
         <Link className="underline" href="/versus/preview">
-          versus preview
-        </Link>
-        .
+          practice screens
+        </Link>{" "}
+        instead.
       </p>
     </div>
   );
@@ -210,7 +209,7 @@ function SeatedView({ session }: { session: VersusPlayerSession }) {
           <ModeBadge mode="live" />
           <p className="text-lg">
             {snap.room && snap.me
-              ? "All four seats are taken — you're watching this round."
+              ? "All four seats are taken, so you're watching this round."
               : `Contacting host… (${snap.status})`}
           </p>
         </div>
@@ -227,7 +226,7 @@ function SeatedView({ session }: { session: VersusPlayerSession }) {
         <VersusResults
           result={scoreboard.result}
           team={slot.team}
-          footer={<p className="font-mono text-xs text-mist">Stay on this screen — the host can start the next match.</p>}
+          footer={<p className="text-sm text-mist">Stay on this screen. The host can start the next match.</p>}
         />
       </div>
     );

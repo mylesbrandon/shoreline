@@ -7,7 +7,7 @@
 import { SONAR } from "@/game/config";
 import type { Marker, SonarContact, SonarView, Vec2 } from "@/game/types";
 import { hazardClass } from "@/game/versus/contract";
-import { PALETTE } from "@/components/ocean/palette";
+import { canvasFont, PALETTE } from "@/components/ocean/palette";
 import { SCOPE_DISPLAY_RANGE } from "./scope-coords";
 
 // One palette for every canvas (the old ownership split is gone), so the drone camera re-themes with the rest.
@@ -354,10 +354,10 @@ function drawPersonContact(ctx: CanvasRenderingContext2D, at: Vec2, ringPx: numb
   ctx.moveTo(at.x, at.y + 4);
   ctx.lineTo(at.x + 2.5, at.y + 7.5);
   ctx.stroke();
-  ctx.font = "bold 9px monospace";
+  ctx.font = canvasFont(11);
   ctx.textAlign = "center";
   ctx.fillStyle = PERSON_RING;
-  ctx.fillText("PERSON", at.x, at.y - ring - 4);
+  ctx.fillText("Person", at.x, at.y - ring - 4);
   ctx.textAlign = "start";
   ctx.restore();
 }
@@ -462,10 +462,10 @@ function drawRivalSki(
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
-  ctx.font = `bold ${Math.max(8, size * 0.028)}px ui-monospace, monospace`;
+  ctx.font = canvasFont(Math.max(10, size * 0.032));
   ctx.textAlign = "center";
   ctx.fillStyle = color;
-  ctx.fillText("RIVAL", 0, 14 * scale + 8);
+  ctx.fillText("Rival", 0, 14 * scale + 8);
   ctx.restore();
 }
 
@@ -480,7 +480,7 @@ function drawCoachPulse(ctx: CanvasRenderingContext2D, cx: number, cy: number, w
 }
 
 function drawCardinals(ctx: CanvasRenderingContext2D, cx: number, cy: number, well: number, size: number): void {
-  const font = `${Math.max(10, size * 0.038)}px ui-monospace, monospace`;
+  const font = canvasFont(Math.max(11, size * 0.04));
   ctx.font = font;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";

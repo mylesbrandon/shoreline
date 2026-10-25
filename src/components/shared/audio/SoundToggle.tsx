@@ -25,7 +25,7 @@ export function SoundToggle({
       onClick={onToggle}
       aria-pressed={!muted && unlocked}
       aria-label={label}
-      className="inline-flex h-11 min-w-[44px] items-center justify-center rounded-xl border border-hull bg-navy px-3 font-mono text-xs uppercase tracking-widest text-foam"
+      className="inline-flex h-11 min-w-[44px] items-center justify-center rounded-xl border border-hull bg-navy px-3 text-sm font-semibold text-foam"
     >
       {label}
     </button>

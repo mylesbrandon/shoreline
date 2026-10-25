@@ -5,8 +5,8 @@ Each task is independent and testable with mock data. Nobody waits on anybody. R
 Setup for everyone:
 
 ```bash
-git clone https://github.com/<OWNER>/stormline.git
-cd stormline
+git clone https://github.com/<OWNER>/shoreline.git
+cd shoreline
 npm install
 git checkout -b <your-branch>   # see each task
 npm run dev                      # http://localhost:3000
@@ -63,7 +63,7 @@ npm run dev                      # http://localhost:3000
 
 **Do:**
 1. Create a free Supabase project; put URL + anon/publishable key in `.env.local` (see [DEPLOY.md](DEPLOY.md)).
-2. Implement `src/lib/realtime/supabase-transport.ts` (the notes at the top of the file are the recipe): channel `stormline:room:<CODE>`, broadcast event `"msg"` with `self: false`, presence keyed by `playerId`, status mapping, clean `disconnect()`.
+2. Implement `src/lib/realtime/supabase-transport.ts` (the notes at the top of the file are the recipe): channel `shoreline:room:<CODE>`, broadcast event `"msg"` with `self: false`, presence keyed by `playerId`, status mapping, clean `disconnect()`.
 3. Add a temporary debug route `src/app/debug/[roomCode]/page.tsx` that connects, lists presence members live, and has a "Send test" button that sends `{ type: "test" }` and shows received test messages.
 4. Verify leave/rejoin: closing a tab removes it from presence within a few seconds; reopening shows it again; `PlayerSession` sends `hello` on reconnect.
 5. Fill in the "Supabase" section of `DEPLOY.md` with anything you learned.

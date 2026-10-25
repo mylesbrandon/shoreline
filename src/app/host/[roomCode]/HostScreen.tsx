@@ -74,8 +74,7 @@ export function HostScreen({ roomCode, lanOrigin = null }: { roomCode: string; l
 
         {isMock && (
           <p className="rounded-xl border border-amber/40 bg-amber/10 p-3 text-sm text-amber">
-            Mock mode: phones cannot join this room. Add Supabase keys to <code>.env.local</code> for real multiplayer
-            (docs/DEPLOY.md), or open a <Link className="underline" href="/room/DEMO?preview=captain">station preview</Link>.
+            Practice mode: phones can&apos;t join this room because this build has no multiplayer connection. Open a <Link className="underline" href="/room/DEMO?preview=captain">station preview</Link>.
           </p>
         )}
         {isMock && snap.error && (

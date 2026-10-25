@@ -1,7 +1,7 @@
 /** Per-device mute flag. Read only inside effects / useSyncExternalStore — never during SSR render paths that hit localStorage unsafely. */
 
-export const MUTE_STORAGE_KEY = "stormline-audio-muted";
-export const MUTE_EVENT = "stormline-audio-mute";
+export const MUTE_STORAGE_KEY = "shoreline-audio-muted";
+export const MUTE_EVENT = "shoreline-audio-mute";
 
 export function readMuted(): boolean {
   try {

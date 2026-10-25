@@ -6,7 +6,7 @@ const board = () => mockScoreboardAt(23000);
 test("pickup feedback comes from score deltas, even without events", () => {
   const before = board(), after = structuredClone(before);
   after.scores.blue.rescues++;
-  assert.deepEqual(scoreNotices(before, after).map(n=>[n.team,n.label]), [["blue","PICKED UP!"]]);
+  assert.deepEqual(scoreNotices(before, after).map(n=>[n.team,n.label]), [["blue","Picked up"]]);
   assert.deepEqual(scoreNotices(after, after), []);
   assert.equal(before.scores.blue.rescues, 1);
 });

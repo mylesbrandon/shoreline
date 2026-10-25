@@ -98,8 +98,7 @@ function MockNotice() {
     <div className="grid gap-3">
       <ModeBadge mode="mock" />
       <p className="instrument rounded-2xl p-5 text-mist">
-        Supabase isn&apos;t configured, so this phone can&apos;t reach a host. Mock mode never pretends devices are
-        synchronized. Configure <code>.env.local</code> (see docs/DEPLOY.md), or try a station with mock data:
+        This build has no multiplayer connection, so this phone can&apos;t reach a host. Try a station with practice data:
       </p>
       <div className="grid grid-cols-2 gap-2">
         {(["captain", "sonar", "weather", "radio"] as const).map((r) => (

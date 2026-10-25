@@ -7,7 +7,7 @@
 | `music-lobby.mp3` | Waiting room / results loop | Team-provided asset (`song1.mp3`), used as lobby bed |
 | `music-match.mp3` | In-match loop | Team-provided asset (`song2.mp3`), used as match bed |
 
-These two tracks were supplied by the Stormline HowdyHack team for the demo.
+These two tracks were supplied by the Shoreline HowdyHack team for the demo.
 If you swap them, keep the filenames and update this table with author + licence.
 
 ## Sound effects (`public/audio/sfx/`)

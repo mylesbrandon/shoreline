@@ -7,7 +7,7 @@ const baloo = Baloo_2({ subsets: ["latin"], weight: ["400", "500", "600", "700",
 const bowlby = Bowlby_One({ subsets: ["latin"], weight: "400", variable: "--font-bowlby" });
 
 export const metadata: Metadata = {
-  title: "Red Flag Day",
+  title: "Shoreline",
   description: "Swimmers are getting dragged past the buoys by the rip. Two crews, four phones, 120 seconds. Save the most swimmers.",
 };
 

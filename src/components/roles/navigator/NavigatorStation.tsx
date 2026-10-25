@@ -110,7 +110,7 @@ export function NavigatorStation({ view, scoreboard, onAction }: NavigatorStatio
     if (!scoreboard) return;
     const rescues = scoreboard.scores[rivalId]?.rescues ?? 0;
     if (prevRivalRescues.current !== null && rescues > prevRivalRescues.current) {
-      setRivalFlash(`${rivalInfo.label.toUpperCase()} GOT THEM — new person in the water`);
+      setRivalFlash(`${rivalInfo.label} got them. A new person is in the water.`);
       setSuppressPerson(true);
     }
     prevRivalRescues.current = rescues;
@@ -118,7 +118,7 @@ export function NavigatorStation({ view, scoreboard, onAction }: NavigatorStatio
 
   // Two hazard marks per crew (VERSUS.maxHazardMarks, enforced by the engine). Tapping a mark
   // removes it; at the cap a new mark isn't sent, the toast says how to free a slot instead.
-  const FULL_TEXT = `${MAX_HAZARD_MARKS} / ${MAX_HAZARD_MARKS} marks · tap a mark to remove it first`;
+  const FULL_TEXT = `All ${MAX_HAZARD_MARKS} marks are down. Tap one to remove it first.`;
   const mark = (position: Vec2) => {
     if (!active) return;
     const intent = markIntent(view.sonar.markers, position);
@@ -127,7 +127,7 @@ export function NavigatorStation({ view, scoreboard, onAction }: NavigatorStatio
       return;
     }
     onAction({ type: "MARK_HAZARD", position });
-    setMarkToast(intent === "remove" ? { text: "Mark removed", warn: false } : { text: "Marked · your Driver sees it", warn: false });
+    setMarkToast(intent === "remove" ? { text: "Mark removed", warn: false } : { text: "Marked on your Driver's screen", warn: false });
     if (intent === "place") setHasMarked(true);
   };
 
@@ -172,7 +172,7 @@ export function NavigatorStation({ view, scoreboard, onAction }: NavigatorStatio
       <p
         role="status"
         aria-live="polite"
-        className={`navigator-callout text-center font-display font-bold uppercase leading-tight tracking-wide ${calloutTone} ${
+        className={`navigator-callout text-center font-poster leading-tight ${calloutTone} ${
           personFound || rivalFlash ? "navigator-callout--found" : ""
         }`}
       >
@@ -186,11 +186,11 @@ export function NavigatorStation({ view, scoreboard, onAction }: NavigatorStatio
       <div className="relative min-h-0 flex-1">
         {tab === "drone" ? (
           <section
-            className="rounded-2xl border-2 border-cyan/50 bg-gradient-to-b from-cyan/10 to-abyss/80 p-2"
+            className="rounded-2xl border-2 border-cyan/50 bg-abyss/70 p-2"
             aria-label="Drone radar"
           >
-            <h3 className="mb-1 flex items-center justify-center gap-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan">
-              Drone · land &amp; jellies
+            <h3 className="mb-1 text-center text-sm font-semibold text-cyan">
+              The drone sees land and jellyfish
             </h3>
             <div className="mx-auto w-full max-w-[min(100%,32dvh)]">
               <SonarScope
@@ -202,19 +202,19 @@ export function NavigatorStation({ view, scoreboard, onAction }: NavigatorStatio
                 coachPulse={coachPulse}
               />
             </div>
-            <p className="mt-1.5 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-cyan">
-              Tap the radar to mark an obstacle · tap a mark to remove it
+            <p className="mt-1.5 text-center text-sm text-cyan">
+              Tap the radar to mark an obstacle. Tap a mark to remove it.
             </p>
             {coachPulse && (
-              <p className="mt-1 animate-pulse text-center font-display text-sm font-bold uppercase tracking-wide text-amber">
+              <p className="mt-1 animate-pulse text-center text-base font-bold text-amber">
                 Tap a contact to mark it
               </p>
             )}
             <div className="mt-1 flex items-center justify-center gap-2">
               <span
-                className={`font-mono text-[10px] font-semibold uppercase tracking-wider ${marks >= MAX_HAZARD_MARKS ? "text-amber" : "text-mist"}`}
+                className={`text-sm font-semibold ${marks >= MAX_HAZARD_MARKS ? "text-amber" : "text-mist"}`}
               >
-                Hazard markers: {marks} / {MAX_HAZARD_MARKS}
+                {marks} of {MAX_HAZARD_MARKS} marks used
               </span>
               {hazardMarks.map((m, i) => (
                 <button
@@ -223,7 +223,7 @@ export function NavigatorStation({ view, scoreboard, onAction }: NavigatorStatio
                   disabled={!active}
                   onClick={() => mark(m.position)}
                   aria-label={`Remove hazard mark ${i + 1}`}
-                  className="h-11 min-w-11 rounded-lg border border-hazard/60 bg-abyss/80 px-2 font-mono text-xs font-bold uppercase text-hazard disabled:opacity-40"
+                  className="h-11 min-w-11 rounded-lg border border-hazard/60 bg-abyss/80 px-2 text-sm font-bold text-hazard disabled:opacity-40"
                 >
                   ✕ {i + 1}
                 </button>
@@ -232,15 +232,11 @@ export function NavigatorStation({ view, scoreboard, onAction }: NavigatorStatio
           </section>
         ) : (
           <section
-            className="rounded-2xl border-2 border-amber/50 p-2"
-            style={{
-              backgroundImage:
-                "repeating-linear-gradient(0deg, transparent, transparent 3px, rgb(255 200 61 / 0.04) 3px, rgb(255 200 61 / 0.04) 4px), linear-gradient(180deg, rgb(255 200 61 / 0.12), rgb(8 48 74 / 0.9))",
-            }}
+            className="rounded-2xl border-2 border-amber/50 bg-abyss/70 p-2"
             aria-label="Beach radio"
           >
-            <h3 className="mb-1.5 flex items-center justify-center gap-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-amber">
-              Radio · calls from the beach
+            <h3 className="mb-1.5 text-center text-sm font-semibold text-amber">
+              Beach radio: how warm each square is
             </h3>
             <RadioGrid
               view={view.radio}
@@ -254,7 +250,7 @@ export function NavigatorStation({ view, scoreboard, onAction }: NavigatorStatio
         {markToast && (
           <p
             role="status"
-            className={`pointer-events-none absolute inset-x-2 top-2 rounded-lg border bg-abyss/90 px-3 py-2 text-center font-mono text-sm font-semibold uppercase tracking-wide shadow-lg ${
+            className={`pointer-events-none absolute inset-x-2 top-2 rounded-lg border bg-abyss/90 px-3 py-2 text-center text-base font-semibold ${
               markToast.warn ? "border-amber/60 text-amber" : "border-teal/40 text-teal"
             }`}
           >
@@ -264,7 +260,7 @@ export function NavigatorStation({ view, scoreboard, onAction }: NavigatorStatio
         {dockToast && (
           <p
             role="status"
-            className="pointer-events-none absolute inset-x-2 top-2 rounded-lg border border-hazard/50 bg-abyss/95 px-3 py-2 text-center font-display text-base font-bold uppercase tracking-wide text-hazard shadow-lg"
+            className="pointer-events-none absolute inset-x-2 top-2 rounded-lg border border-hazard/50 bg-abyss/95 px-3 py-2 text-center text-base font-bold text-hazard"
           >
             Back at the dock
           </p>
@@ -291,7 +287,7 @@ export function NavigatorStation({ view, scoreboard, onAction }: NavigatorStatio
             disabled={!active || !ahead}
             onClick={markAhead}
             aria-label="Mark nearest obstacle ahead"
-            className="relative h-16 min-h-11 w-full overflow-hidden rounded-xl border-2 border-teal bg-navy font-display text-sm font-semibold uppercase tracking-[0.12em] text-teal transition active:scale-[0.98] disabled:opacity-40"
+            className="relative h-16 min-h-11 w-full overflow-hidden rounded-xl border-2 border-teal bg-navy font-display text-lg font-bold text-teal transition active:scale-[0.98] disabled:opacity-40"
           >
             Mark
           </button>

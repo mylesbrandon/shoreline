@@ -8,7 +8,7 @@ export type ConnectionStatus = "idle" | "connecting" | "connected" | "disconnect
 
 export function ConnectionBanner({ status, error }: { status: ConnectionStatus; error?: string | null }) {
   if (status === "connected" || status === "idle") return null;
-  const label = status === "connecting" ? "Connecting to the room…" : "Connection lost · reconnecting…";
+  const label = status === "connecting" ? "Connecting to the room…" : "Connection lost. Reconnecting…";
   return (
     <div
       role="status"

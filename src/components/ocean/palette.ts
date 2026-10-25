@@ -1,4 +1,4 @@
-/** Canvas colors: keep in sync with the @theme tokens in src/app/globals.css (Red Flag Day beach palette). */
+/** Canvas colors: keep in sync with the @theme tokens in src/app/globals.css (Shoreline beach palette). */
 export const PALETTE = {
   abyss: "#073f4d",
   navy: "#0a5466",
@@ -17,3 +17,10 @@ export const PALETTE = {
   jelly: "#f48fb1",
   ink: "#12324a",
 } as const;
+
+let uiFamily: string | null = null;
+/** Canvas text in the page's own UI face (Baloo 2), read once from <body>; system-ui outside a browser. */
+export function canvasFont(px: number, weight: "normal" | "bold" = "bold"): string {
+  if (uiFamily === null && typeof document !== "undefined") uiFamily = getComputedStyle(document.body).fontFamily || null;
+  return `${weight} ${px}px ${uiFamily ?? "system-ui, sans-serif"}`;
+}
