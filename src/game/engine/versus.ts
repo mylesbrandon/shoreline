@@ -33,12 +33,14 @@ import type {
   VersusMatchState,
   VersusViews,
 } from "../versus/contract";
-import { BOAT, MISSION } from "../config";
-import type { GameState, PlayerAction, PlayerActionType, Role, Vec2 } from "../types";
-import { applyAction as applyGameAction } from "./actions";
+import { BOAT, MISSION, RADIO } from "../config";
+import type { GameState, PlayerAction, PlayerActionType, Role, SectorId, Vec2 } from "../types";
+import { sectorCenter, sectorOf } from "../sectors";
+import { applyAction as applyGameAction, validateAction } from "./actions";
 import { scoreMission } from "./score";
 import { createInitialState } from "./state";
 import { step as stepGame, type StepTuning } from "./step";
+import { reachability, withFormations } from "./formations";
 import { survivorSpawn } from "./survivors";
 import {
   getCaptainSurvivor,
@@ -78,7 +80,28 @@ export const VERSUS_RULES = {
    * The survivor's drift follows the scaled current too. Identical for both crews.
    */
   currentFactor: 0.5,
+  /**
+   * Radio readings in versus come in three levels spread across the board (playtest r6: with the
+   * co-op falloff most squares read nothing). 3 bars = the person is in that square; 2 bars = the
+   * square's centre is within this many squares of them; 1 bar = within signalOneBarSquares.
+   */
+  signalTwoBarsSquares: 1.6,
+  signalOneBarSquares: 3,
 } as const;
+
+/**
+ * Versus radio reading for a square: 1 (3 bars) in the person's own square, else 0.67 / 0.33 / 0
+ * by how many squares away its centre is. Discrete on purpose: the bars ARE the clue, and coarse
+ * rings make the Navigator combine several scans and talk it through.
+ */
+export function versusSignalStrength(target: Vec2, sector: SectorId): number {
+  if (sectorOf(target) === sector) return 1;
+  const c = sectorCenter(sector);
+  const squares = Math.hypot(target.x - c.x, target.y - c.y) * RADIO.grid;
+  if (squares <= VERSUS_RULES.signalTwoBarsSquares) return 0.67;
+  if (squares <= VERSUS_RULES.signalOneBarSquares) return 0.33;
+  return 0;
+}
 
 const scaleCurrent = (v: Vec2): Vec2 => ({ x: v.x * VERSUS_RULES.currentFactor, y: v.y * VERSUS_RULES.currentFactor });
 
@@ -96,13 +119,18 @@ const VERSUS_CAPTAIN: CaptainViewOptions = {
   sonarRevealMs: VERSUS_RULES.captainSonarRevealMs,
 };
 
+const DOCKS: readonly Vec2[] = [dockFor("blue"), dockFor("red")];
+
 function createWorld(team: TeamId, seed: number, matchId: string): TeamWorld {
   const state = createInitialState({ seed, gameId: matchId });
+  // Same seed and inputs for both crews, so both worlds get the identical reef field.
+  const hazards = withFormations(seed, state.hazards, DOCKS, state.target.position, VERSUS_RULES.rescueRadius);
   return {
     team,
     state: {
       ...state,
       boat: { ...state.boat, position: dockFor(team) },
+      hazards,
       target: { ...state.target, rescueRadius: VERSUS_RULES.rescueRadius },
       weather: {
         ...state.weather,
@@ -152,13 +180,40 @@ export function applyMatchAction(
   if (!versusRoleMay(slot.role, action.type)) return { match, events: [], rejected: "not_permitted" };
   if (match.phase !== "active") return { match, events: [], rejected: "wrong_phase" };
   const world = match.teams[slot.team];
-  const r = applyGameAction(world.state, action, ENGINE_SENDER[action.type] ?? null);
-  if (r.rejected) return { match, events: [], rejected: r.rejected };
-  return {
-    match: { ...match, teams: { ...match.teams, [slot.team]: { ...world, state: r.state } } },
-    events: r.events.map((event): MatchEvent => ({ type: "TEAM_GAME_EVENT", team: slot.team, event })),
+  const sender = ENGINE_SENDER[action.type] ?? null;
+  const withState = (state: GameState, events: MatchEvent[]): MatchActionResult => ({
+    match: { ...match, teams: { ...match.teams, [slot.team]: { ...world, state } } },
+    events,
     rejected: null,
-  };
+  });
+
+  // Hazard marks are capped per crew (VERSUS.maxHazardMarks). Tapping one of your marks removes
+  // it; a new mark beyond the cap is refused (the UI explains how to free a slot). Each crew has
+  // its own world, so the cap is per team. Radio pins (MARK_TARGET) never count.
+  if (action.type === "MARK_HAZARD") {
+    const invalid = validateAction(world.state, action, sender);
+    if (invalid) return { match, events: [], rejected: invalid };
+    const hazardMarks = world.state.markers.filter((m) => m.kind === "hazard");
+    const gap = (m: { position: Vec2 }) => Math.hypot(m.position.x - action.position.x, m.position.y - action.position.y);
+    const [tapped] = hazardMarks.filter((m) => gap(m) <= VERSUS.markRemoveRadius).sort((a, b) => gap(a) - gap(b));
+    if (tapped) return withState({ ...world.state, markers: world.state.markers.filter((m) => m.id !== tapped.id) }, []);
+    // No dedicated reason in the frozen co-op ActionRejectReason; the phone pre-checks the cap.
+    if (hazardMarks.length >= VERSUS.maxHazardMarks) return { match, events: [], rejected: "invalid_payload" };
+  }
+
+  const r = applyGameAction(world.state, action, sender);
+  if (r.rejected) return { match, events: [], rejected: r.rejected };
+  let state = r.state;
+  let events = r.events;
+  if (action.type === "RADIO_SCAN") {
+    const strength = versusSignalStrength(world.state.target.position, action.sector);
+    state = {
+      ...state,
+      radio: { ...state.radio, readings: state.radio.readings.map((x) => (x.sector === action.sector ? { ...x, strength } : x)) },
+    };
+    events = events.map((e) => (e.type === "RADIO_SCANNED" ? { ...e, strength } : e));
+  }
+  return withState(state, events.map((event): MatchEvent => ({ type: "TEAM_GAME_EVENT", team: slot.team, event })));
 }
 
 /**
@@ -282,6 +337,8 @@ function resolveRescue(
     won.state.hazards,
     [blue.world.state.boat.position, red.world.state.boat.position],
     won.state.target.rescueRadius,
+    // Never behind a reef formation with no way in from the docks.
+    reachability(won.state.hazards, DOCKS).reaches,
   );
   const settle = (world: TeamWorld): TeamWorld => {
     const scored = world.team === winner;

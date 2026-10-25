@@ -56,6 +56,8 @@ export function survivorSpawn(
   hazards: Hazard[],
   boats: Vec2 | readonly Vec2[],
   rescueRadius: number = TARGET.rescueRadius,
+  /** Extra filter on candidates (versus: reachable from the docks through the reef formations). */
+  accept: (p: Vec2) => boolean = () => true,
 ): Vec2 {
   if (survivorIndex <= 0) return generateLayout(seed).target;
 
@@ -68,7 +70,7 @@ export function survivorSpawn(
     };
     // Same rescue-zone clearance the layout gives the Gull, so the survivor is always reachable.
     const blocked = hazards.some((h) => distance(p, h.position) < h.radius + rescueRadius + LAYOUT.targetClearance);
-    if (!blocked) clear.push(p);
+    if (!blocked && accept(p)) clear.push(p);
   }
 
   // With several boats (versus: both crews race for the same survivor), "far from the boat" means

@@ -109,6 +109,17 @@ export const VERSUS = {
   captainVisualRange: 0.05,
   /** Driver window width in map units in versus (co-op uses 0.24). */
   captainWindowSpan: 0.18,
+  /**
+   * Hazard marks a crew may have on the map at once (playtest r6: the Navigator prioritises and
+   * talks instead of marking everything). Radio guess pins never count. Enforced by the engine.
+   */
+  maxHazardMarks: 2,
+  /**
+   * MARK_HAZARD within this distance (map units) of one of the crew's hazard marks REMOVES that
+   * mark instead of placing a new one: the Navigator taps a mark to clear it. The UI uses the same
+   * radius to say "tap a mark to remove it".
+   */
+  markRemoveRadius: 0.04,
 } as const;
 
 /** Versus hazard classes. Sandbars (reef) and rocks are LAND: touching one runs the boat aground (back to its dock, hull repaired to full). Jellyfish (debris) are the only hazard that damages the hull. */

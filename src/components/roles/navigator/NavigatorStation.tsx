@@ -18,7 +18,7 @@ import { SonarScope } from "../sonar/SonarScope";
 import { RadioGrid } from "../radio/RadioGrid";
 import { hypot2, navigatorCallout } from "./callouts";
 import { nearestContactAhead } from "./mark-ahead";
-import { hazardMarkCount, MAX_HAZARD_MARKS } from "./markers";
+import { hazardMarkCount, markIntent, MAX_HAZARD_MARKS } from "./markers";
 import { NavigatorTabs, type NavigatorTab } from "./NavigatorTabs";
 import { SkiHullBar } from "./SkiHullBar";
 
@@ -43,7 +43,7 @@ function rivalTeamId(team: TeamId): TeamId {
 
 export function NavigatorStation({ view, scoreboard, onAction }: NavigatorStationProps) {
   const [tab, setTab] = useState<NavigatorTab>("drone");
-  const [markToast, setMarkToast] = useState(false);
+  const [markToast, setMarkToast] = useState<{ text: string; warn: boolean } | null>(null);
   const [dockToast, setDockToast] = useState(false);
   const [rivalFlash, setRivalFlash] = useState<string | null>(null);
   const [flashSector, setFlashSector] = useState<SectorId | null>(null);
@@ -76,7 +76,7 @@ export function NavigatorStation({ view, scoreboard, onAction }: NavigatorStatio
 
   useEffect(() => {
     if (!markToast) return;
-    const id = window.setTimeout(() => setMarkToast(false), 1200);
+    const id = window.setTimeout(() => setMarkToast(null), markToast.warn ? 2600 : 1200);
     return () => window.clearTimeout(id);
   }, [markToast]);
 
@@ -116,17 +116,32 @@ export function NavigatorStation({ view, scoreboard, onAction }: NavigatorStatio
     prevRivalRescues.current = rescues;
   }, [scoreboard, rivalId, rivalInfo.label]);
 
+  // Two hazard marks per crew (VERSUS.maxHazardMarks, enforced by the engine). Tapping a mark
+  // removes it; at the cap a new mark isn't sent, the toast says how to free a slot instead.
+  const FULL_TEXT = `${MAX_HAZARD_MARKS} / ${MAX_HAZARD_MARKS} marks · tap a mark to remove it first`;
   const mark = (position: Vec2) => {
     if (!active) return;
+    const intent = markIntent(view.sonar.markers, position);
+    if (intent === "full") {
+      setMarkToast({ text: FULL_TEXT, warn: true });
+      return;
+    }
     onAction({ type: "MARK_HAZARD", position });
-    setMarkToast(true);
-    setHasMarked(true);
+    setMarkToast(intent === "remove" ? { text: "Mark removed", warn: false } : { text: "Marked · your Driver sees it", warn: false });
+    if (intent === "place") setHasMarked(true);
   };
 
   const markAhead = () => {
     if (!ahead || !active) return;
+    // The button only ever places: if the contact ahead already carries a mark, leave it.
+    if (markIntent(view.sonar.markers, ahead) === "remove") {
+      setMarkToast({ text: "Already marked", warn: false });
+      return;
+    }
     mark(ahead);
   };
+
+  const hazardMarks = view.sonar.markers.filter((m) => m.kind === "hazard");
 
   const sweep = () => {
     onAction({ type: "SONAR_PING" });
@@ -188,16 +203,32 @@ export function NavigatorStation({ view, scoreboard, onAction }: NavigatorStatio
               />
             </div>
             <p className="mt-1.5 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-cyan">
-              Tap the radar to mark an obstacle for your Driver
+              Tap the radar to mark an obstacle · tap a mark to remove it
             </p>
             {coachPulse && (
               <p className="mt-1 animate-pulse text-center font-display text-sm font-bold uppercase tracking-wide text-amber">
                 Tap a contact to mark it
               </p>
             )}
-            <p className="mt-1 text-center font-mono text-[10px] uppercase tracking-wider text-mist">
-              {marks} / {MAX_HAZARD_MARKS} marks
-            </p>
+            <div className="mt-1 flex items-center justify-center gap-2">
+              <span
+                className={`font-mono text-[10px] font-semibold uppercase tracking-wider ${marks >= MAX_HAZARD_MARKS ? "text-amber" : "text-mist"}`}
+              >
+                Hazard markers: {marks} / {MAX_HAZARD_MARKS}
+              </span>
+              {hazardMarks.map((m, i) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  disabled={!active}
+                  onClick={() => mark(m.position)}
+                  aria-label={`Remove hazard mark ${i + 1}`}
+                  className="h-11 min-w-11 rounded-lg border border-hazard/60 bg-abyss/80 px-2 font-mono text-xs font-bold uppercase text-hazard disabled:opacity-40"
+                >
+                  ✕ {i + 1}
+                </button>
+              ))}
+            </div>
           </section>
         ) : (
           <section
@@ -223,9 +254,11 @@ export function NavigatorStation({ view, scoreboard, onAction }: NavigatorStatio
         {markToast && (
           <p
             role="status"
-            className="pointer-events-none absolute inset-x-2 top-2 rounded-lg border border-teal/40 bg-abyss/90 px-3 py-2 text-center font-mono text-sm font-semibold uppercase tracking-wide text-teal shadow-lg"
+            className={`pointer-events-none absolute inset-x-2 top-2 rounded-lg border bg-abyss/90 px-3 py-2 text-center font-mono text-sm font-semibold uppercase tracking-wide shadow-lg ${
+              markToast.warn ? "border-amber/60 text-amber" : "border-teal/40 text-teal"
+            }`}
           >
-            Marked · your Driver sees it
+            {markToast.text}
           </p>
         )}
         {dockToast && (
