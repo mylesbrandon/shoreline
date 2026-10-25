@@ -8,7 +8,8 @@ import { NETWORK } from "../config";
 import type { GameState, Vec2 } from "../types";
 import { hazardClass } from "../versus/contract";
 import { versusEngine as V } from "./index";
-import { besideFormation, docksReach, FORMATIONS, landBetween, reachability } from "./formations";
+import { besideFormation, docksReach, FORMATIONS, JELLIES, landBetween, reachability, withFormations, withJellies } from "./formations";
+import { createInitialState } from "./state";
 import { dockFor } from "./versus";
 
 const DT = 1000 / NETWORK.simHz;
@@ -137,5 +138,33 @@ describe("versus formations: people spawn among the obstacles", () => {
     }
     // Measured: 84% with the preferences, 68% without (60 seeds x 6 people).
     assert.ok(involved >= total * 0.75, `${involved}/${total}`);
+  });
+});
+
+describe("versus formations: jellyfish share", () => {
+  test("6–8 jellyfish on at least 90% of maps, identical for both crews, never a formation reef", () => {
+    let ok = 0;
+    for (const seed of SEEDS) {
+      const m = V.createMatch({ seed, matchId: "m" });
+      const jellies = m.teams.blue.state.hazards.filter((h) => h.kind === "debris");
+      if (jellies.length >= JELLIES.min && jellies.length <= JELLIES.max) ok++;
+      assert.ok(jellies.every((h) => !h.id.startsWith("f")), `seed ${seed}: a formation reef became a jelly`);
+      assert.deepEqual(m.teams.red.state.hazards, m.teams.blue.state.hazards, `seed ${seed}: same for both crews`);
+    }
+    assert.ok(ok >= SEEDS.length * 0.9, `${ok}/${SEEDS.length} maps have 6–8 jellyfish`);
+  });
+
+  test("turning land into jellies keeps the geometry, so routes and clearances are unchanged", () => {
+    for (const seed of SEEDS.slice(0, 10)) {
+      const start = createInitialState({ seed, gameId: "g" });
+      const before = withFormations(seed, start.hazards, DOCKS, start.target.position, 0.06);
+      const after = withJellies(seed, before);
+      assert.deepEqual(after.map((h) => [h.id, h.position, h.radius]), before.map((h) => [h.id, h.position, h.radius]));
+      after.forEach((h, i) => {
+        const was = before[i];
+        assert.ok(was && (h.kind === was.kind || (h.kind === "debris" && hazardClass(was.kind) === "land")), `seed ${seed}: ${h.id}`);
+      });
+      assert.ok(docksReach(after, DOCKS, start.target.position, 0.06), `seed ${seed}`);
+    }
   });
 });
