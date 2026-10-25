@@ -19,6 +19,7 @@ import type {
   CaptainView,
   GameEvent,
   GameState,
+  HazardKind,
   PlayerAction,
   PlayerActionType,
   PlayerId,
@@ -29,7 +30,7 @@ import type {
   Vec2,
 } from "../types";
 
-export const VERSUS_CONTRACT_VERSION = "versus-1" as const;
+export const VERSUS_CONTRACT_VERSION = "versus-2" as const;
 
 // ---------------------------------------------------------------------------
 // Teams, roles, lineup
@@ -104,7 +105,18 @@ export const VERSUS = {
   finalCountdownMs: 10_000,
   /** SpectatorMatchView.recentRescues keeps at most this many (newest last). */
   recentRescuesKept: 8,
+  /** Driver's clear lookout radius in versus (co-op uses CAPTAIN.visualRange = 0.07). The engine filters with it; the Driver window draws it. */
+  captainVisualRange: 0.05,
+  /** Driver window width in map units in versus (co-op uses 0.24). */
+  captainWindowSpan: 0.18,
 } as const;
+
+/** Versus hazard classes. Sandbars (reef) and rocks are LAND: touching one runs the boat aground (back to the start, hull untouched). Jellyfish (debris) are the only hazard that damages the hull. */
+export type HazardClass = "land" | "jelly";
+
+export function hazardClass(kind: HazardKind): HazardClass {
+  return kind === "debris" ? "jelly" : "land";
+}
 
 // ---------------------------------------------------------------------------
 // Host-only authoritative match state (owned and mutated ONLY by the engine)
@@ -206,6 +218,8 @@ export interface VersusCaptainView {
   matchId: string;
   tick: number;
   captain: CaptainView;
+  /** The survivor's position when within VERSUS.captainVisualRange of the boat, else null. Filtered only in src/game/engine/views.ts. */
+  survivor: Vec2 | null;
 }
 
 /**
@@ -251,7 +265,8 @@ export type MatchEvent =
   | { type: "MATCH_COUNTDOWN"; countdownMs: number }
   | { type: "MATCH_STARTED"; atMs: number }
   | { type: "SURVIVOR_RESCUED"; rescue: RescueEvent }
-  | { type: "BOAT_WIPEOUT"; team: TeamId; atMs: number }
+  /** aground = touched land; wrecked = jellyfish took the hull to 0. Both respawn at the start; both count in TeamWorld.wipeouts. */
+  | { type: "BOAT_WIPEOUT"; team: TeamId; atMs: number; cause: "aground" | "wrecked" }
   | { type: "MATCH_ENDED"; result: MatchResult }
   /** A co-op engine event from one team's world (HAZARD_HIT, SONAR_PINGED, …). Never MISSION_ENDED. */
   | { type: "TEAM_GAME_EVENT"; team: TeamId; event: GameEvent };

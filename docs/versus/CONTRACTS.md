@@ -104,8 +104,9 @@ interface SpectatorMatchView { role: "spectator"; matchId; tick; scoreboard; tea
 - The nested co-op views are produced by the existing `getCaptainView` / `getSonarView` / `getRadioView` / `getSpectatorView` on that team's world, so `CaptainStation`, `SonarScope` and the radio grid render them unchanged.
 - **Hidden information** is unchanged and still decided only in `src/game/engine/views.ts`:
   - No view contains `target`.
-  - The only exception: `sonar.contacts` may hold a `"gull"` contact (a snapshot from a ping in range), in the **Navigator** view only.
-  - The Captain view never gets it: `visibleHazards` only lists real hazards.
+  - Exception 1: `sonar.contacts` may hold a `"gull"` contact (a snapshot from a ping in range), in the **Navigator** view only.
+  - Exception 2 (versus-2, versus only): `VersusCaptainView.survivor` is the survivor's position while they are within `VERSUS.captainVisualRange` of that team's boat, and `null` otherwise. It is a sibling of the nested co-op `captain` view, so the co-op `CaptainView` itself is unchanged and the co-op game is unaffected.
+  - Apart from that field, the Captain view never gets it: `visibleHazards` only lists real hazards.
   - The spectator's per-team `target` is `null` until that world ends.
 - The **scoreboard is public**: everyone sees both teams' counts and the clock. That's the live score pressure.
 - Weather is gone as a seat. Gusts still blow, identically for both teams (same seed). Nobody gets the forecast.

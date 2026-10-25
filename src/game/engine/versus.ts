@@ -160,7 +160,8 @@ function stepWorld(world: TeamWorld, seed: number, dtMs: number, events: MatchEv
   // Wipeout: back to the start with a full hull; the trip back is the penalty. Throttle and rudder
   // are kept so the Driver's controls still show what the boat is doing. The survivor stays put.
   if (phase === "failure" && failureReason === "hull_destroyed") {
-    events.push({ type: "BOAT_WIPEOUT", team: world.team, atMs: elapsedMs });
+    // TODO(dev1): set cause from the actual trigger ("aground" for land) — versus-2 placeholder.
+    events.push({ type: "BOAT_WIPEOUT", team: world.team, atMs: elapsedMs, cause: "wrecked" });
     const boat = {
       ...r.state.boat,
       position: { x: MISSION.boatStart.x, y: MISSION.boatStart.y },
@@ -215,7 +216,8 @@ function teamViews(match: VersusMatchState, team: TeamId): TeamViews {
   const state = match.teams[team].state;
   const common = { team, matchId: match.matchId, tick: match.tick };
   return {
-    captain: { ...common, role: "captain", captain: getCaptainView(state) },
+    // TODO(dev1): fill survivor when within VERSUS.captainVisualRange — versus-2 placeholder.
+    captain: { ...common, role: "captain", captain: getCaptainView(state), survivor: null },
     navigator: { ...common, role: "navigator", sonar: getSonarView(state), radio: getRadioView(state) },
   };
 }

@@ -357,7 +357,8 @@ describe("versus: wipeouts", () => {
     assert.equal(count(r.events, "BOAT_WIPEOUT"), 1);
     assert.deepEqual(
       r.events.find((e) => e.type === "BOAT_WIPEOUT"),
-      { type: "BOAT_WIPEOUT", team: "blue", atMs: m.elapsedMs },
+      // TODO(dev1): expect cause "aground" for land once the land/jelly split lands.
+      { type: "BOAT_WIPEOUT", team: "blue", atMs: m.elapsedMs, cause: "wrecked" },
     );
     assert.equal(count(r.events, "SURVIVOR_RESCUED"), 0);
     const blue = m.teams.blue;
