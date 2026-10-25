@@ -536,7 +536,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, size: number, scene: Oc
   if (scene.window && scene.versus) drawCompass(ctx, true);
   if (scene.target && personOverGlare) drawTarget(ctx, cam, scene.target, timeMs);
   if (scene.versus) {
-    for (const m of scene.markers) drawNavigatorMark(ctx, size, cam, m, scene.elapsedMs ?? -1, timeMs);
+    for (const m of scene.markers) drawNavigatorMark(ctx, size, cam, m, scene.elapsedMs ?? -1, timeMs, Boolean(scene.window));
     for (const extra of scene.additionalBoats ?? []) {
       ctx.save();
       ctx.globalAlpha = extra.opacity ?? 1;
@@ -664,7 +664,10 @@ function drawSpeedStreaks(ctx: CanvasRenderingContext2D, size: number, cam: Came
   ctx.restore();
 }
 
-function drawNavigatorMark(ctx: CanvasRenderingContext2D, size: number, cam: Camera, marker: Marker, elapsed: number, timeMs: number): void {
+/** Radio guess ring size: the versus pickup radius (engine VERSUS_RULES.rescueRadius). */
+const RADIO_GUESS_RADIUS = 0.06;
+
+function drawNavigatorMark(ctx: CanvasRenderingContext2D, size: number, cam: Camera, marker: Marker, elapsed: number, timeMs: number, driverWindow = false): void {
   const p=toScreen(cam,marker.position);
   const fresh=freshNavigatorMark(marker,elapsed);
   if(marker.kind==="hazard") {
@@ -675,8 +678,31 @@ function drawNavigatorMark(ctx: CanvasRenderingContext2D, size: number, cam: Cam
     ctx.fillStyle=PALETTE.ink;ctx.font="bold 16px monospace";ctx.textAlign="center";ctx.fillText("!",0,6);
     ctx.restore();
   } else {
-    // Radio's guess pin is not drawn in versus: the yellow-and-red buoy read as a person (playtest
-    // r4). The Driver still gets the amber edge arrow toward it (drawEdgeArrow).
+    // Radio's guess pin in versus: never a buoy (the old yellow-and-red one read as a person,
+    // playtest r4). In the Driver's window it is a dashed amber ring the size of the pickup zone
+    // with a small label, so it stays visible on arrival (audit r9); off-screen the edge arrow
+    // points to it. The big screen leaves it out.
+    if (!driverWindow || marker.kind !== "target_guess") return;
+    const r = RADIO_GUESS_RADIUS * cam.scale;
+    ctx.save();
+    ctx.setLineDash([6, 5]);
+    ctx.lineDashOffset = -timeMs / 80;
+    ctx.strokeStyle = PALETTE.amber;
+    ctx.globalAlpha = 0.85;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+    ctx.font = "bold 9px monospace";
+    ctx.textAlign = "center";
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = PALETTE.ink;
+    ctx.strokeText("RADIO GUESS", p.x, p.y - r - 5);
+    ctx.fillStyle = PALETTE.amber;
+    ctx.fillText("RADIO GUESS", p.x, p.y - r - 5);
+    ctx.restore();
     return;
   }
   if(fresh && p.x>=0 && p.x<=size && p.y>=0 && p.y<=size) {
