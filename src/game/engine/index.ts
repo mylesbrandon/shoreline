@@ -23,6 +23,8 @@ export {
   getWeatherView,
 } from "./views";
 export { createRng, randomBetween, type Rng } from "./rng";
+/** 2v2 "Rescue Showdown": two co-op worlds behind one match clock (see src/game/versus/contract.ts). */
+export { versusEngine } from "./versus";
 
 /**
  * The engine as an object — this is what the host session (src/lib/game-client) depends on,

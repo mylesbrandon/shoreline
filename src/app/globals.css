@@ -17,6 +17,9 @@
   --color-amber: #ffc83d;
   --color-hazard: #e8412f;
   --color-brass: #f3d9a4;
+  /* 2v2 Rescue Showdown team colours (text-team-blue, bg-team-red/20…). Canvas: PALETTE in ocean/palette.ts. */
+  --color-team-blue: #5aa9ff;
+  --color-team-red: #ff6f61;
 
   --font-display: var(--font-chakra), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-plex-mono), ui-monospace, monospace;

@@ -14,6 +14,7 @@
  * - Plain JSON-serializable data only (no classes, Maps, Dates, functions) so state can be
  *   broadcast over Supabase Realtime and snapshotted.
  */
+import type { MatchEvent, MatchScoreboard, VersusRoom, VersusViews } from "./versus/contract";
 
 // ---------------------------------------------------------------------------
 // Primitives
@@ -391,7 +392,15 @@ export type NetworkMessage =
   // host → one player: action was rejected (optional UX feedback)
   | (MessageBase & { type: "action_rejected"; actionId: string; reason: ActionRejectReason })
   // anyone → anyone: connectivity smoke test (Developer 2's first task)
-  | (MessageBase & { type: "test"; text: string });
+  | (MessageBase & { type: "test"; text: string })
+  // 2v2 "Rescue Showdown" (additive, see src/game/versus/contract.ts). Phones still send
+  // "hello" and "action"; a versus host answers with these instead of room/views/events.
+  // host → all: versus lobby (team seats)
+  | (MessageBase & { type: "versus_room"; room: VersusRoom })
+  // host → all at NETWORK.viewBroadcastHz: public scoreboard + every seat's view
+  | (MessageBase & { type: "versus_views"; matchId: string; tick: number; scoreboard: MatchScoreboard; views: VersusViews })
+  // host → all: one-shot effects, tagged by team where relevant
+  | (MessageBase & { type: "versus_events"; matchId: string; tick: number; events: MatchEvent[] });
 
 export type NetworkMessageType = NetworkMessage["type"];
 
