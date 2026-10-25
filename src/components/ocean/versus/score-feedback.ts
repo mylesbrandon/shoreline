@@ -9,7 +9,7 @@ export function scoreNotices(before: MatchScoreboard | null, next: MatchScoreboa
     if (score.rescues > old.rescues) notices.push({ team, kind: "picked-up", label: "PICKED UP!", key: next.matchId + team + ":rescue:" + score.rescues });
     if (score.wipeouts > old.wipeouts) {
       const wrecked = old.hull <= 25;
-      notices.push({ team, kind: wrecked ? "wrecked" : "aground", label: wrecked ? "WRECKED" : "RAN AGROUND — back to the tower", key: next.matchId + team + ":wipeout:" + score.wipeouts });
+      notices.push({ team, kind: wrecked ? "wrecked" : "aground", label: wrecked ? "WRECKED" : "RAN AGROUND — back to the dock", key: next.matchId + team + ":wipeout:" + score.wipeouts });
     }
     return notices;
   });

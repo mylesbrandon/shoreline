@@ -15,15 +15,25 @@ export function OceanCanvas({ className = "", onTapMap, gameId, ...scene }: Ocea
   const sceneRef = useRef<OceanScene>(scene);
   const samples = useRef<BoatSample[]>([]);
   const previousGame = useRef(gameId);
+  const additionalSamples = useRef(new Map<string, BoatSample[]>());
 
   useEffect(() => {
     sceneRef.current = scene;
     if (previousGame.current !== gameId) {
       samples.current = [];
+      additionalSamples.current.clear();
       previousGame.current = gameId;
     }
     if (samples.current.at(-1)?.boat !== scene.boat) {
       samples.current = [...samples.current, { boat: scene.boat, at: performance.now() }].slice(-32);
+    }
+    if (scene.versus) {
+      const ids = new Set((scene.additionalBoats ?? []).map((b) => b.id));
+      for (const id of additionalSamples.current.keys()) if (!ids.has(id)) additionalSamples.current.delete(id);
+      for (const extra of scene.additionalBoats ?? []) {
+        const history = additionalSamples.current.get(extra.id) ?? [];
+        if (history.at(-1)?.boat !== extra.boat) additionalSamples.current.set(extra.id, [...history, { boat: extra.boat, at: performance.now() }].slice(-32));
+      }
     }
   });
 
@@ -48,7 +58,12 @@ export function OceanCanvas({ className = "", onTapMap, gameId, ...scene }: Ocea
     const loop = (now: number) => {
       if (dpr !== (window.devicePixelRatio || 1)) resize();
       const boat = interpolateBoat(samples.current, now - NETWORK.interpolationDelayMs) ?? sceneRef.current.boat;
-      if (size > 0) drawScene(ctx, size, { ...sceneRef.current, boat }, media.matches ? 0 : now);
+      const latest = sceneRef.current;
+      const extra = latest.versus ? latest.additionalBoats?.map((b) => ({
+        ...b, boat: interpolateBoat(additionalSamples.current.get(b.id) ?? [], now - NETWORK.interpolationDelayMs) ?? b.boat,
+      })) : latest.additionalBoats;
+      const wakeTrail = latest.versus ? samples.current.filter((s) => s.at >= now - 650 && s.at <= now - NETWORK.interpolationDelayMs).map((s) => s.boat.position) : undefined;
+      if (size > 0) drawScene(ctx, size, { ...latest, boat, additionalBoats: extra, wakeTrail }, media.matches ? 0 : now);
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);

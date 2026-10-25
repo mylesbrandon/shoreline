@@ -9,13 +9,27 @@ import type { BoatState, Hazard, Marker, RescueTarget, Vec2 } from "@/game/types
 import { hazardClass } from "@/game/versus/contract";
 import { BOAT } from "@/game/config";
 import { PALETTE } from "./palette";
+import { freshNavigatorMark, waterFlecks } from "./versus/scene-details";
 
+export interface SceneBoat {
+  id: string;
+  boat: BoatState;
+  tint: string;
+  opacity?: number;
+  label?: string;
+}
 export interface OceanScene {
   boat: BoatState;
   /** Opt-in playtest visuals: co-op uses its existing art. */
   versus?: boolean;
   /** Optional versus deck colour; absent preserves the original co-op drawing. */
   boatTint?: string;
+  /** Versus-only secondary boats; the Driver supplies only an engine-filtered rival. */
+  additionalBoats?: SceneBoat[];
+  /** Mission time for fresh Navigator marks, never a client wall clock. */
+  elapsedMs?: number;
+  /** Recent received positions for a cosmetic wake; no client simulation. */
+  wakeTrail?: Vec2[];
   hazards: Hazard[];
   markers: Marker[];
   target?: RescueTarget | null;
@@ -466,12 +480,17 @@ function drawEdgeArrow(ctx: CanvasRenderingContext2D, size: number, cam: Camera,
 export function drawScene(ctx: CanvasRenderingContext2D, size: number, scene: OceanScene, timeMs: number): void {
   const cam = cameraFor(size, scene);
   drawOcean(ctx, size, cam, timeMs, scene.stormIntensity ?? 0.3, !scene.window);
-  if (!scene.window) drawShore(ctx, size, cam, timeMs);
+  if (scene.versus && scene.window) drawWorldWater(ctx, size, cam, scene.window.span, timeMs);
+  if (!scene.window) {
+    if (scene.versus) drawDock(ctx, size, cam);
+    else drawShore(ctx, size, cam, timeMs);
+  }
+  if (scene.versus && scene.wakeTrail) drawWakeTrail(ctx, cam, scene.wakeTrail, scene.boat.speed);
   for (const h of scene.hazards) {
     if (scene.versus && hazardClass(h.kind) === "land") drawLand(ctx, cam, h);
     else drawHazard(ctx, cam, h, timeMs);
   }
-  for (const m of scene.markers) drawMarker(ctx, cam, m);
+  if (!scene.versus) for (const m of scene.markers) drawMarker(ctx, cam, m);
   // Versus Driver window: the person goes ABOVE the glare. The engine sends them once their rescue
   // ring reaches the lookout circle, i.e. often just outside the clear area, where the 93% glare
   // would hide them until the instant of pickup.
@@ -479,6 +498,22 @@ export function drawScene(ctx: CanvasRenderingContext2D, size: number, scene: Oc
   if (scene.target && !personOverGlare) (scene.versus ? drawTarget : drawCoopTarget)(ctx, cam, scene.target, timeMs);
   if (scene.window) drawGlare(ctx, size, cam, scene.window.lookout);
   if (scene.target && personOverGlare) drawTarget(ctx, cam, scene.target, timeMs);
+  if (scene.versus) {
+    for (const m of scene.markers) drawNavigatorMark(ctx, size, cam, m, scene.elapsedMs ?? -1, timeMs);
+    for (const extra of scene.additionalBoats ?? []) {
+      ctx.save();
+      ctx.globalAlpha = extra.opacity ?? 1;
+      drawBoat(ctx, size, cam, extra.boat, extra.tint);
+      if (extra.label) {
+        const p = toScreen(cam, extra.boat.position);
+        ctx.fillStyle = extra.tint; ctx.strokeStyle = PALETTE.ink;
+        ctx.lineWidth = 3; ctx.textAlign = "center"; ctx.font = "bold 9px monospace";
+        ctx.strokeText(extra.label, p.x, p.y - 19);ctx.fillText(extra.label, p.x, p.y - 19);
+      }
+      ctx.restore();
+    }
+    drawSpeedStreaks(ctx, size, cam, scene.boat, timeMs);
+  }
   drawBoat(ctx, size, cam, scene.boat, scene.boatTint);
   if (scene.window) {
     for (const m of scene.markers) if (m.kind === "target_guess") drawEdgeArrow(ctx, size, cam, m);
@@ -529,5 +564,106 @@ export function drawTarget(ctx: CanvasRenderingContext2D, cam: Camera, target: R
   ctx.beginPath();ctx.moveTo(s*.2,-s*.2);ctx.lineTo(s*.7,-s*.8);ctx.lineTo(s*.75+wave,-s*1.4);ctx.stroke();
   ctx.fillStyle="#ffdec0";ctx.strokeStyle=PALETTE.ink;ctx.lineWidth=1.3;
   ctx.beginPath();ctx.arc(0,-s*.65,s*.4,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.restore();
+}
+
+// Reuse world cells while the camera remains in the same grid bounds; bounded for long sessions.
+const waterCache = new Map<string, ReturnType<typeof waterFlecks>>();
+/** A small, bounded grid: positions depend on map cells, never on frame or camera identity. */
+function drawWorldWater(ctx: CanvasRenderingContext2D, size: number, cam: Camera, span: number, timeMs: number): void {
+  const spacing=.014;
+  const key=[Math.floor(cam.ox/spacing),Math.floor(cam.oy/spacing),Math.ceil((cam.ox+span)/spacing),Math.ceil((cam.oy+span)/spacing)].join(":");
+  let flecks=waterCache.get(key);
+  if(!flecks) {
+    flecks=waterFlecks({x:cam.ox,y:cam.oy},span);
+    if(waterCache.size>=32) waterCache.delete(waterCache.keys().next().value!);
+    waterCache.set(key,flecks);
+  }
+  ctx.save();ctx.strokeStyle="rgba(255,255,255,.52)";ctx.lineWidth=1.2;
+  for (const fleck of flecks) {
+    const x=(fleck.x-cam.ox)*cam.scale,y=(fleck.y-cam.oy)*cam.scale;
+    if (x < -8 || y < -8 || x > size+8 || y > size+8) continue;
+    ctx.globalAlpha=.35 + fleck.strength*.5;
+    const length=2+fleck.strength*5;
+    ctx.beginPath();ctx.moveTo(x-length,y);
+    ctx.quadraticCurveTo(x,y-2,x+length,y);ctx.stroke();
+    if(fleck.strength>.8) {
+      const sparkle=.7+.3*Math.sin(timeMs/600+fleck.strength*20);
+      ctx.globalAlpha*=sparkle;
+      ctx.beginPath();ctx.moveTo(x,y-3);ctx.lineTo(x,y+3);ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+function drawWakeTrail(ctx: CanvasRenderingContext2D, cam: Camera, trail: Vec2[], speed: number): void {
+  if (speed <= .001 || trail.length < 2) return;
+  ctx.save();ctx.lineCap="round";ctx.strokeStyle="rgba(255,255,255,.45)";
+  for(let i=1;i<trail.length;i++) {
+    const a=toScreen(cam,trail[i-1]!),b=toScreen(cam,trail[i]!);
+    // Avoid a map-spanning slash when the host respawns a boat.
+    const distance=Math.hypot(a.x-b.x,a.y-b.y);
+    if(distance<.25 || distance>cam.scale*.08) continue;
+    ctx.globalAlpha=i/trail.length*.65;
+    ctx.lineWidth=1+(1-i/trail.length)*5;
+    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawSpeedStreaks(ctx: CanvasRenderingContext2D, size: number, cam: Camera, boat: BoatState, timeMs: number): void {
+  if(boat.throttle<.7 || boat.speed<BOAT.maxSpeed*.6) return;
+  const p=toScreen(cam,boat.position), s=Math.max(10,size*.028);
+  const speed=Math.min(1,boat.speed/(BOAT.maxSpeed*1.5));
+  ctx.save();ctx.translate(p.x,p.y);ctx.rotate(boat.heading);
+  ctx.strokeStyle="rgba(255,255,255,.65)";ctx.lineWidth=1.2;
+  for(let i=0;i<4;i++) {
+    const phase=((timeMs/450+i*.25)%1);
+    const x=(i%2?1:-1)*s*(1.4+(i%3)*.25);
+    const y=s*(.2+phase*3);
+    ctx.globalAlpha=(1-phase)*speed;
+    ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x,y+s*(.4+speed));ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawNavigatorMark(ctx: CanvasRenderingContext2D, size: number, cam: Camera, marker: Marker, elapsed: number, timeMs: number): void {
+  const p=toScreen(cam,marker.position);
+  const fresh=freshNavigatorMark(marker,elapsed);
+  if(marker.kind==="hazard") {
+    const pulse=fresh?1+.12*Math.sin(timeMs/100):1;
+    ctx.save();ctx.translate(p.x,p.y);ctx.scale(pulse,pulse);
+    ctx.fillStyle=PALETTE.amber;ctx.strokeStyle="#9d241e";ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(0,-12);ctx.lineTo(12,0);ctx.lineTo(0,12);ctx.lineTo(-12,0);ctx.closePath();ctx.fill();ctx.stroke();
+    ctx.fillStyle=PALETTE.ink;ctx.font="bold 16px monospace";ctx.textAlign="center";ctx.fillText("!",0,6);
+    ctx.restore();
+  } else drawMarker(ctx,cam,marker);
+  if(fresh && p.x>=0 && p.x<=size && p.y>=0 && p.y<=size) {
+    const x=Math.max(73,Math.min(size-73,p.x));
+    const y=Math.max(16,p.y-22);
+    ctx.save();ctx.fillStyle="rgba(8,48,74,.96)";ctx.fillRect(x-73,y-11,146,18);
+    ctx.fillStyle=PALETTE.foam;ctx.font="bold 9px monospace";ctx.textAlign="center";
+    ctx.fillText("MARKED BY NAVIGATOR",x,y+2);ctx.restore();
+  }
+}
+
+/** Versus-only jetty: blue berth west, red berth east. Legacy co-op shore stays untouched. */
+function drawDock(ctx: CanvasRenderingContext2D, size: number, cam: Camera): void {
+  const left=toScreen(cam,{x:.36,y:.91}),right=toScreen(cam,{x:.64,y:.91});
+  const shore=toScreen(cam,{x:0,y:.98}).y;
+  ctx.save();ctx.fillStyle=PALETTE.sand;ctx.fillRect(0,shore,size,size-shore);
+  const width=Math.max(8,size*.025);
+  ctx.fillStyle="#b89160";ctx.strokeStyle="#61472e";ctx.lineWidth=1.5;
+  for(const berth of [left,right]) {
+    ctx.fillRect(berth.x-width,berth.y,width*2,size-berth.y);
+    ctx.strokeRect(berth.x-width,berth.y,width*2,size-berth.y);
+    for(let y=berth.y;y<size;y+=6) {ctx.beginPath();ctx.moveTo(berth.x-width,y);ctx.lineTo(berth.x+width,y);ctx.stroke();}
+  }
+  ctx.fillStyle="#b89160";ctx.fillRect(left.x-width,shore,right.x-left.x+width*2,Math.max(8,size*.02));
+  for(const [berth,colour,label] of [[left,"#5aa9ff","BLUE"],[right,"#ff6f61","RED"]] as const) {
+    ctx.fillStyle=colour;ctx.fillRect(berth.x-width,berth.y,width*2,Math.max(4,size*.012));
+    ctx.font="bold 8px monospace";ctx.textAlign="center";ctx.strokeStyle=PALETTE.ink;ctx.lineWidth=3;
+    ctx.strokeText(label,berth.x,berth.y-5);ctx.fillText(label,berth.x,berth.y-5);
+  }
   ctx.restore();
 }
