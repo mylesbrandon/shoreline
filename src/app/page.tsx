@@ -21,7 +21,7 @@ export default function Home() {
           <Wordmark />
         </h1>
         <p className="max-w-xl text-xl text-mist sm:text-2xl">
-          A tourist on a giant inflatable seagull just drifted past the buoys.{" "}
+          A swimmer got dragged past the buoys by the rip.{" "}
           <span className="text-foam">Four lifeguards, four phones, {MISSION.durationMs / 1000} seconds.</span>
         </p>
         <div className="grid gap-4 sm:grid-cols-2">

@@ -192,7 +192,7 @@ function SeatedView({ session }: { session: VersusPlayerSession }) {
     <div className="grid gap-3">
       {banner}
       <MatchScoreStrip scoreboard={scoreboard} team={slot.team} />
-      <VersusRoleStation view={view} onAction={(a) => session.sendAction(a)} />
+      <VersusRoleStation view={view} scoreboard={scoreboard} onAction={(a) => session.sendAction(a)} />
     </div>
   );
 }
