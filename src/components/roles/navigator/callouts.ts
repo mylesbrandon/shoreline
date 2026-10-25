@@ -151,5 +151,5 @@ export function navigatorCallout(sonar: SonarView, radio: RadioView, nowMs: numb
     };
   }
 
-  return { kind: "prompt", text: "SWEEP OR SCAN TO FIND THEM" };
+  return { kind: "prompt", text: "SWEEP TO SCAN FOR OBSTACLES" };
 }

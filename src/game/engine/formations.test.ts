@@ -8,7 +8,7 @@ import { NETWORK } from "../config";
 import type { GameState, Vec2 } from "../types";
 import { hazardClass } from "../versus/contract";
 import { versusEngine as V } from "./index";
-import { docksReach, FORMATIONS, reachability } from "./formations";
+import { besideFormation, docksReach, FORMATIONS, landBetween, reachability } from "./formations";
 import { dockFor } from "./versus";
 
 const DT = 1000 / NETWORK.simHz;
@@ -115,5 +115,27 @@ describe("versus formations: routes", () => {
     m = { ...m, teams: { ...m.teams, blue: { ...m.teams.blue, state: { ...s, boat: { ...s.boat, position: { x: reef.position.x, y: reef.position.y + 0.15 } } } } } };
     m = V.applyAction(m, { team: "blue", role: "navigator" }, { type: "SONAR_PING" }).match;
     assert.ok(m.teams.blue.state.sonar.contacts.some((c) => c.hazardId.startsWith("f")));
+  });
+});
+
+describe("versus formations: people spawn among the obstacles", () => {
+  test("most new people have land between them and both boats, or sit beside a formation", () => {
+    let total = 0;
+    let involved = 0;
+    for (const seed of SEEDS.slice(0, 12)) {
+      let m = V.startMatch(V.createMatch({ seed, matchId: "m" })).match;
+      while (m.phase === "countdown") m = V.step(m, DT).match;
+      for (let i = 0; i < 4; i++) {
+        const park = (s: GameState): GameState => ({ ...s, boat: { ...s.boat, position: { ...s.target.position } } });
+        m = V.step({ ...m, teams: { ...m.teams, blue: { ...m.teams.blue, state: park(m.teams.blue.state) } } }, DT).match;
+        const s = m.teams.blue.state;
+        const p = s.target.position;
+        const boats = [s.boat.position, m.teams.red.state.boat.position];
+        total++;
+        if (boats.some((b) => landBetween(b, p, s.hazards)) || besideFormation(p, s.hazards, 0.18)) involved++;
+      }
+    }
+    // Measured: 84% with the preferences, 68% without (60 seeds x 6 people).
+    assert.ok(involved >= total * 0.75, `${involved}/${total}`);
   });
 });

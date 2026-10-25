@@ -40,7 +40,7 @@ import { applyAction as applyGameAction, validateAction } from "./actions";
 import { scoreMission } from "./score";
 import { createInitialState } from "./state";
 import { step as stepGame, type StepTuning } from "./step";
-import { reachability, withFormations } from "./formations";
+import { besideFormation, landBetween, reachability, withFormations } from "./formations";
 import { survivorSpawn } from "./survivors";
 import {
   getCaptainSurvivor,
@@ -87,6 +87,11 @@ export const VERSUS_RULES = {
    */
   signalTwoBarsSquares: 1.6,
   signalOneBarSquares: 3,
+  /**
+   * Spawn preference: "beside a formation" means the person is within this of a formation's rim.
+   * Spawns already keep rescueRadius + LAYOUT.targetClearance (0.12) from every rim.
+   */
+  besideReefWithin: 0.18,
 } as const;
 
 /**
@@ -331,14 +336,24 @@ function resolveRescue(
   const rescue: RescueEvent = { team: winner, survivorIndex, position: { ...won.state.target.position }, atMs };
   events.push({ type: "SURVIVOR_RESCUED", rescue });
 
+  const boats = [blue.world.state.boat.position, red.world.state.boat.position];
   const next = survivorSpawn(
     seed,
     survivorIndex + 1,
     won.state.hazards,
-    [blue.world.state.boat.position, red.world.state.boat.position],
+    boats,
     won.state.target.rescueRadius,
     // Never behind a reef formation with no way in from the docks.
     reachability(won.state.hazards, DOCKS).reaches,
+    // Prefer someone neither crew can drive straight at (playtest r7): land between them and
+    // BOTH boats, else at least the nearer boat (the crew that could otherwise dash straight in).
+    // Same boats list for both worlds, so both get the same person.
+    [
+      (p) => boats.every((b) => landBetween(b, p, won.state.hazards)),
+      (p) => landBetween(nearest(boats, p), p, won.state.hazards),
+      // Otherwise tucked in beside a reef formation (just outside the usual spawn clearance).
+      (p) => besideFormation(p, won.state.hazards, VERSUS_RULES.besideReefWithin),
+    ],
   );
   const settle = (world: TeamWorld): TeamWorld => {
     const scored = world.team === winner;
@@ -392,6 +407,9 @@ export function stepMatch(match: VersusMatchState, dtMs: number): MatchStepResul
   const result: MatchResult = { winner: decideWinner(scores), scores, endedAtMs: elapsedMs };
   return { match: { ...next, phase: "ended", result }, events: [...events, { type: "MATCH_ENDED", result }] };
 }
+
+const nearest = (boats: readonly Vec2[], p: Vec2): Vec2 =>
+  boats.reduce((best, b) => (Math.hypot(b.x - p.x, b.y - p.y) < Math.hypot(best.x - p.x, best.y - p.y) ? b : best));
 
 /** Inside the Driver's boat-centred window (contract versus-3: |dx|, |dy| <= captainWindowSpan / 2). */
 function inWindow(boat: Vec2, other: Vec2): boolean {

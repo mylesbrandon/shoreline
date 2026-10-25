@@ -18,6 +18,9 @@ const LAND_FILL = C.sand;
 const LAND_STROKE = "#c4a574";
 const PERSON_RING = C.amber;
 
+/** The contact key's colours, shared with the HTML legend under the scope (ScopeLegend). */
+export const LEGEND_COLORS = { landFill: LAND_FILL, landStroke: LAND_STROKE, jelly: JELLY, jellyStroke: "#ffb6c8", person: PERSON_RING, foam: C.foam } as const;
+
 const TAU = Math.PI * 2;
 const SWEEP_MS = 3_200;
 /** Contacts dim over this many mission-ms after detection, but never vanish. */
@@ -114,7 +117,6 @@ export function drawSonarScope(
   ctx.stroke();
 
   drawCardinals(ctx, cx, cy, well, size);
-  drawContactLegend(ctx, size);
 }
 
 function drawRangeRings(
@@ -358,69 +360,6 @@ function drawPersonContact(ctx: CanvasRenderingContext2D, at: Vec2, ringPx: numb
   ctx.fillText("PERSON", at.x, at.y - ring - 4);
   ctx.textAlign = "start";
   ctx.restore();
-}
-
-function drawContactLegend(ctx: CanvasRenderingContext2D, size: number): void {
-  const font = `${Math.max(8, size * 0.028)}px ui-monospace, monospace`;
-  ctx.font = font;
-  ctx.textBaseline = "middle";
-  const y = size - size * 0.045;
-  const items: { label: string; draw: (x: number, y: number) => void }[] = [
-    {
-      label: "LAND",
-      draw: (x, y0) => {
-        ctx.fillStyle = LAND_FILL;
-        ctx.strokeStyle = LAND_STROKE;
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(x - 5, y0);
-        ctx.lineTo(x - 2, y0 - 4);
-        ctx.lineTo(x + 5, y0 - 2);
-        ctx.lineTo(x + 3, y0 + 4);
-        ctx.lineTo(x - 4, y0 + 3);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-      },
-    },
-    {
-      label: "JELLY",
-      draw: (x, y0) => {
-        ctx.fillStyle = JELLY;
-        ctx.setLineDash([2, 2]);
-        ctx.strokeStyle = "#ffb6c8";
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.arc(x, y0, 4, 0, TAU);
-        ctx.fill();
-        ctx.stroke();
-        ctx.setLineDash([]);
-      },
-    },
-    {
-      label: "PERSON",
-      draw: (x, y0) => {
-        ctx.strokeStyle = PERSON_RING;
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.arc(x, y0, 4.5, 0, TAU);
-        ctx.stroke();
-        ctx.fillStyle = C.foam;
-        ctx.beginPath();
-        ctx.arc(x, y0 - 1, 1.2, 0, TAU);
-        ctx.fill();
-      },
-    },
-  ];
-  const gap = size * 0.28;
-  let x = size * 0.12;
-  for (const item of items) {
-    item.draw(x, y);
-    ctx.fillStyle = C.mist;
-    ctx.textAlign = "left";
-    ctx.fillText(item.label, x + 8, y);
-    x += gap;
-  }
 }
 
 function drawMarkers(

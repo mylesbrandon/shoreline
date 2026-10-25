@@ -58,6 +58,12 @@ export function survivorSpawn(
   rescueRadius: number = TARGET.rescueRadius,
   /** Extra filter on candidates (versus: reachable from the docks through the reef formations). */
   accept: (p: Vec2) => boolean = () => true,
+  /**
+   * Preferences, best first, tried within the minSpawnFromBoat tier (versus: land between the
+   * person and both boats, then at least the nearer boat). Only tie-breakers: when none qualifies,
+   * the same rules apply as without them.
+   */
+  prefer: readonly ((p: Vec2) => boolean)[] = [],
 ): Vec2 {
   if (survivorIndex <= 0) return generateLayout(seed).target;
 
@@ -78,6 +84,10 @@ export function survivorSpawn(
   const all: readonly Vec2[] = Array.isArray(boats) ? boats : [boats as Vec2];
   const fromBoats = (p: Vec2) => Math.min(...all.map((b) => distance(p, b)));
   const far =
+    prefer.reduce<Vec2 | undefined>(
+      (found, wants) => found ?? clear.find((p) => fromBoats(p) >= SURVIVORS.minSpawnFromBoat && wants(p)),
+      undefined,
+    ) ??
     clear.find((p) => fromBoats(p) >= SURVIVORS.minSpawnFromBoat) ??
     clear.find((p) => fromBoats(p) >= SURVIVORS.minSpawnFromAnyBoat);
   if (far) return far;
