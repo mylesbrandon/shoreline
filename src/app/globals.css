@@ -1,28 +1,35 @@
 @import "tailwindcss";
 
 /*
- * Red Flag Day design tokens (sunny beach: deep-water panels, sand, lifeguard red, buoy yellow).
+ * Red Flag Day design tokens. Beach overhaul: Gulf water panels on a sunlit sea, warm sand,
+ * the red-over-yellow lifeguard flag (red = danger / brand, yellow = the one thing to press).
  * Token names are kept from the original theme so every component re-themes without edits. Use these via Tailwind classes (bg-abyss, text-teal, border-hull…)
  * or via var(--color-*) in canvas code (see components/ocean/palette.ts — keep them in sync).
  */
 @theme {
-  --color-abyss: #08304a;
-  --color-navy: #0d4462;
-  --color-deep: #1f7a99;
-  --color-hull: #3a7f97;
-  --color-foam: #ffffff;
-  --color-mist: #b9dfe6;
-  --color-teal: #4cc9c0;
-  --color-cyan: #8be3ef;
-  --color-amber: #ffc83d;
-  --color-hazard: #e8412f;
-  --color-brass: #f3d9a4;
+  --color-abyss: #073f4d;
+  --color-navy: #0a5466;
+  --color-deep: #0f7486;
+  --color-hull: #3e8e98;
+  --color-foam: #fffdf6;
+  --color-mist: #c9ecec;
+  --color-teal: #5ce1d0;
+  --color-cyan: #9befff;
+  --color-amber: #ffd23f;
+  --color-hazard: #e5322d;
+  --color-brass: #f2c879;
+  /* Beach overhaul extras (additive): warm sand, wet sand, sky. */
+  --color-sand: #f2c879;
+  --color-wet-sand: #c99a52;
+  --color-sky: #8fd8ea;
   /* 2v2 Rescue Showdown team colours (text-team-blue, bg-team-red/20…). Canvas: PALETTE in ocean/palette.ts. */
-  --color-team-blue: #5aa9ff;
-  --color-team-red: #ff6f61;
+  --color-team-blue: #46b3ff;
+  --color-team-red: #ff5a4e;
 
-  --font-display: var(--font-chakra), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  /* Baloo 2 for all UI text (labels too: no monospace chrome); Bowlby One for the poster moments. */
+  --font-display: var(--font-baloo), ui-rounded, system-ui, sans-serif;
+  --font-mono: var(--font-baloo), ui-rounded, system-ui, sans-serif;
+  --font-poster: var(--font-bowlby), var(--font-baloo), system-ui, sans-serif;
 }
 
 :root {
@@ -37,19 +44,29 @@ body {
 }
 
 body {
+  /* Sunlit Gulf water: bright near the surface (top), deeper below, a hint of caustic light. */
+  background-color: var(--color-abyss);
   background-image:
-    radial-gradient(1200px 600px at 50% -10%, rgb(255 236 179 / 0.16), transparent 60%),
-    radial-gradient(800px 500px at 100% 110%, rgb(76 201 192 / 0.12), transparent 60%);
+    radial-gradient(900px 420px at 50% -8%, rgb(255 236 170 / 0.28), transparent 62%),
+    radial-gradient(1400px 260px at 20% 18%, rgb(255 255 255 / 0.05), transparent 70%),
+    linear-gradient(180deg, #0f8a96 0%, #0b6e7c 30%, #084f5e 70%, var(--color-abyss) 100%);
+  background-attachment: fixed;
   min-height: 100dvh;
+}
+
+/* Timers and counters keep their width as digits change. */
+.font-mono {
+  font-variant-numeric: tabular-nums;
 }
 
 /* Instrument panel surface used by stations */
 .instrument {
-  background: linear-gradient(180deg, rgb(17 84 117 / 0.92), rgb(10 56 84 / 0.96));
-  border: 1px solid rgb(243 217 164 / 0.28);
+  /* Deep-water glass with a sand rim, like a panel set into a lifeguard tower. */
+  background: linear-gradient(180deg, rgb(10 92 108 / 0.94), rgb(6 62 76 / 0.97));
+  border: 1.5px solid rgb(242 200 121 / 0.45);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.08),
-    0 10px 30px -12px rgb(0 0 0 / 0.6);
+    inset 0 1px 0 rgb(255 255 255 / 0.12),
+    0 12px 28px -14px rgb(2 30 38 / 0.8);
 }
 
 /* Big touch-friendly range inputs for station controls */
@@ -63,12 +80,12 @@ body {
 .helm-range::-webkit-slider-runnable-track {
   height: 0.5rem;
   border-radius: 9999px;
-  background: linear-gradient(90deg, rgb(243 217 164 / 0.35), rgb(76 201 192 / 0.6));
+  background: linear-gradient(90deg, rgb(242 200 121 / 0.75), rgb(92 225 208 / 0.75));
 }
 .helm-range::-moz-range-track {
   height: 0.5rem;
   border-radius: 9999px;
-  background: linear-gradient(90deg, rgb(243 217 164 / 0.35), rgb(76 201 192 / 0.6));
+  background: linear-gradient(90deg, rgb(242 200 121 / 0.75), rgb(92 225 208 / 0.75));
 }
 .helm-range::-webkit-slider-thumb {
   appearance: none;
@@ -76,17 +93,21 @@ body {
   width: 2.5rem;
   height: 2.5rem;
   border-radius: 9999px;
-  background: var(--color-foam);
-  border: 3px solid var(--color-teal);
-  box-shadow: 0 0 16px rgb(76 201 192 / 0.6);
+  background:
+    radial-gradient(circle, var(--color-navy) 0 34%, transparent 35%),
+    conic-gradient(#e5322d 0 12.5%, #fffdf6 0 37.5%, #e5322d 0 62.5%, #fffdf6 0 87.5%, #e5322d 0);
+  border: 2px solid #fffdf6;
+  box-shadow: 0 3px 10px rgb(2 30 38 / 0.55);
 }
 .helm-range::-moz-range-thumb {
   width: 2.5rem;
   height: 2.5rem;
   border-radius: 9999px;
-  background: var(--color-foam);
-  border: 3px solid var(--color-teal);
-  box-shadow: 0 0 16px rgb(76 201 192 / 0.6);
+  background:
+    radial-gradient(circle, var(--color-navy) 0 34%, transparent 35%),
+    conic-gradient(#e5322d 0 12.5%, #fffdf6 0 37.5%, #e5322d 0 62.5%, #fffdf6 0 87.5%, #e5322d 0);
+  border: 2px solid #fffdf6;
+  box-shadow: 0 3px 10px rgb(2 30 38 / 0.55);
 }
 
 @keyframes sonar-sweep {
@@ -211,4 +232,91 @@ body {
   .navigator-callout--found {
     animation: none;
   }
+}
+
+/* ---------------------------------------------------------------------------
+ * Beach overhaul (playtest r8). Poster face for the moments people read from across the room.
+ * ------------------------------------------------------------------------- */
+.font-poster {
+  font-family: var(--font-poster);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+.vs-strip-team > strong,
+.vs-strip-clock,
+.vs-board-center > strong,
+.vs-score-number > strong,
+.vs-result-team > strong,
+.vs-rescue-burst strong {
+  font-family: var(--font-poster);
+  font-weight: 400;
+}
+
+/* The lifeguard flag: red over yellow, split on the diagonal, waving from the top edge. */
+.lifeguard-flag {
+  display: inline-block;
+  aspect-ratio: 4 / 3;
+  background: linear-gradient(135deg, var(--color-hazard) 0 50%, var(--color-amber) 50% 100%);
+  border-radius: 2px 6px 6px 2px;
+  transform-origin: left center;
+  animation: flag-wave 2.6s ease-in-out infinite;
+  box-shadow: 0 6px 14px -8px rgb(0 0 0 / 0.6);
+}
+@keyframes flag-wave {
+  0%, 100% { transform: skewY(0deg) scaleX(1); }
+  50% { transform: skewY(-4deg) scaleX(0.94); }
+}
+
+/* Beach towels: crew cards striped in the crew colour. --towel is set inline per crew. */
+.towel {
+  position: relative;
+  background:
+    repeating-linear-gradient(90deg, var(--towel) 0 22px, rgb(255 253 246 / 0.92) 22px 30px) top / 100% 10px no-repeat,
+    linear-gradient(180deg, rgb(10 92 108 / 0.94), rgb(6 62 76 / 0.97));
+  overflow: hidden;
+  border: 1.5px solid color-mix(in srgb, var(--towel) 55%, transparent);
+  border-radius: 18px;
+  padding-top: 18px;
+}
+
+/* Sand bank with a foamy shoreline: closes the landing and host pages. */
+.shoreline {
+  position: relative;
+  height: 72px;
+  background: var(--color-sand);
+  margin-top: 8px;
+}
+.shoreline::before {
+  content: "";
+  position: absolute;
+  inset: -18px 0 auto 0;
+  height: 26px;
+  background: radial-gradient(14px 12px at 14px 26px, var(--color-sand) 13px, transparent 14px) 0 0 / 28px 26px repeat-x;
+  filter: drop-shadow(0 -3px 0 rgb(255 253 246 / 0.9));
+}
+
+/* The one button that matters on a screen: buoy yellow, ink text. */
+.btn-buoy {
+  background: var(--color-amber);
+  color: #12324a;
+  box-shadow: 0 4px 0 #c99a1f, 0 10px 20px -10px rgb(0 0 0 / 0.6);
+  transition: transform 80ms ease, box-shadow 80ms ease;
+}
+.btn-buoy:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #c99a1f, 0 6px 14px -10px rgb(0 0 0 / 0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lifeguard-flag { animation: none; }
+}
+
+/* Big screen: the ocean seen through the lifeguard tower's window — a painted sand frame. */
+.vs-stage {
+  border: 3px solid var(--color-sand);
+  box-shadow: 0 6px 0 var(--color-wet-sand), 0 18px 40px -20px rgb(2 30 38 / 0.8);
+}
+.vs-results-kicker {
+  font-family: var(--font-display);
+  font-weight: 700;
 }

@@ -66,10 +66,12 @@ export function VersusPlayerScreen({ roomCode, initialName }: { roomCode: string
   return (
     <main className="mx-auto grid min-h-dvh max-w-xl content-start gap-4 px-4 py-4">
       <header className="flex items-center justify-between">
-        <Link href="/" className="text-xl font-bold">
+        <Link href="/" className="text-2xl focus-visible:outline-2 focus-visible:outline-amber">
           <Wordmark />
         </Link>
-        <span className="font-mono text-sm tracking-[0.3em] text-mist">{roomCode}</span>
+        <span className="rounded-full bg-sand px-3 py-0.5 font-poster text-base tracking-[0.15em] text-[#12324a]" aria-label={`Room ${roomCode}`}>
+          {roomCode}
+        </span>
       </header>
 
       {isMock ? (
@@ -80,7 +82,7 @@ export function VersusPlayerScreen({ roomCode, initialName }: { roomCode: string
         <p className="instrument rounded-2xl p-5 text-mist">Reconnecting…</p>
       ) : (
         <form
-          className="instrument grid gap-3 rounded-2xl p-5"
+          className="instrument grid gap-4 rounded-3xl p-5"
           onSubmit={(e) => {
             e.preventDefault();
             unlockPhoneAudioFromGesture();
@@ -88,17 +90,19 @@ export function VersusPlayerScreen({ roomCode, initialName }: { roomCode: string
           }}
         >
           <label className="grid gap-2">
-            <span className="font-mono text-xs uppercase tracking-[0.25em] text-mist">Your name</span>
+            <span className="text-lg font-semibold text-foam">What should your crew call you?</span>
             <input
               value={boarding.name}
               onChange={(e) => setBoarding({ phase: "form", name: e.target.value.slice(0, 16) })}
               autoFocus
-              className="h-14 rounded-xl border border-hull bg-navy px-4 text-xl text-foam focus:border-teal focus:outline-none"
+              placeholder="Lifeguard"
+              className="h-14 rounded-2xl border-2 border-sand/40 bg-abyss/70 px-4 text-xl text-foam placeholder:text-foam/30 focus:border-amber focus:outline-none"
             />
           </label>
-          <button type="submit" className="h-14 rounded-xl bg-teal font-semibold uppercase tracking-[0.2em] text-abyss">
+          <button type="submit" className="btn-buoy h-14 rounded-2xl text-lg font-bold">
             Join the showdown
           </button>
+          <p className="text-sm text-mist">The laptop puts you on a crew. You&apos;ll see your job here.</p>
         </form>
       )}
     </main>
@@ -132,24 +136,25 @@ function SeatCard({ slot, teammate }: { slot: PlayerTeamAssignment; teammate: st
   const Icon = role.icon;
   const steps = VERSUS_ROLE_STEPS[slot.role];
   return (
-    <div className={`instrument grid gap-4 rounded-2xl border-t-4 p-5 ${team.border}`}>
-      <div className="grid justify-items-center gap-1 text-center">
-        <p className={`font-mono text-xs uppercase tracking-[0.3em] ${team.text}`}>{team.label}</p>
+    <div className="towel grid gap-4 px-5 pb-5" style={{ ["--towel" as string]: team.hex }}>
+      <div className="grid justify-items-center gap-1 pt-2 text-center">
         <Icon className={`size-12 ${team.text}`} />
-        <h1 className={`text-3xl font-bold ${team.text}`}>{role.label}</h1>
-        <p className="text-sm text-mist">{role.brief}</p>
-        {teammate && (
-          <p className="font-mono text-xs text-mist">
-            with <span className={team.text}>{teammate}</span>
-          </p>
-        )}
+        <h1 className={`font-poster text-4xl leading-tight ${team.text}`}>{role.label}</h1>
+        <p className="text-base font-semibold text-foam">
+          {team.label}
+          {teammate && (
+            <>
+              {" "}with <span className={team.text}>{teammate}</span>
+            </>
+          )}
+        </p>
       </div>
 
       <ol className="grid gap-2.5">
         {steps.map((step, i) => (
           <li key={step} className="flex gap-3">
             <span
-              className={`mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full font-mono text-xs font-semibold text-abyss ${team.bg}`}
+              className={`mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full text-sm font-bold text-abyss ${team.bg}`}
               aria-hidden
             >
               {i + 1}
@@ -159,7 +164,10 @@ function SeatCard({ slot, teammate }: { slot: PlayerTeamAssignment; teammate: st
         ))}
       </ol>
 
-      <p className="text-center font-mono text-xs text-hull">Waiting for the whistle…</p>
+      <p className="flex items-center justify-center gap-2 text-center text-base font-semibold text-amber">
+        <span className="lifeguard-flag h-3.5" aria-hidden />
+        Waiting for the whistle…
+      </p>
     </div>
   );
 }
