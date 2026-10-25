@@ -4,12 +4,13 @@
  *
  * Rules (see docs/CONTRACTS.md "Hidden information"):
  * - Nobody but the engine sees `target` until the mission ends (spectator gets it at the end),
- *   except Sonar: a ping in range records a "gull" contact (actions.ts), shown only in the Sonar view.
+ *   except Sonar: a ping in range records a "gull" contact (actions.ts), shown only in the Sonar view,
+ *   and, in versus only, the Captain once the survivor is in lookout range (getCaptainSurvivor).
  * - The captain sees hazards within CAPTAIN.visualRange, plus sonar contacts for a few seconds.
  * - Only the weather specialist gets the forecast and exact current numbers.
  */
 import { CAPTAIN, RADIO, SONAR, WEATHER } from "../config";
-import type { CaptainView, GameState, RadioView, Role, RoleViews, SonarView, SpectatorView, WeatherView } from "../types";
+import type { CaptainView, GameState, RadioView, Role, RoleViews, SonarView, SpectatorView, Vec2, WeatherView } from "../types";
 import { gullDriftVelocity, isShieldActive } from "./step";
 
 const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -35,23 +36,43 @@ export const CAPTAIN_VIEW = {
  * Reveals expire on purpose (playtest: persistent reveals let the Captain build a hazard map and
  * stop listening to Sonar). `Hazard.revealed` stays set for the spectator.
  */
-export function getCaptainView(state: GameState): CaptainView {
+export interface CaptainViewOptions {
+  /** Lookout radius (co-op: CAPTAIN.visualRange). */
+  visualRange: number;
+  /** How long a Sonar contact also shows on the Captain's screen (co-op: CAPTAIN_VIEW.sonarRevealMs). */
+  sonarRevealMs: number;
+}
+
+const COOP_CAPTAIN: CaptainViewOptions = { visualRange: CAPTAIN.visualRange, sonarRevealMs: CAPTAIN_VIEW.sonarRevealMs };
+
+export function getCaptainView(state: GameState, options: CaptainViewOptions = COOP_CAPTAIN): CaptainView {
   const shieldActive = isShieldActive(state.weather, state.mission.elapsedMs);
   const freshContacts = new Set(
     state.sonar.contacts
-      .filter((c) => state.mission.elapsedMs - c.detectedAtMs < CAPTAIN_VIEW.sonarRevealMs)
+      .filter((c) => state.mission.elapsedMs - c.detectedAtMs < options.sonarRevealMs)
       .map((c) => c.hazardId),
   );
   return {
     ...base(state),
     role: "captain",
     visibleHazards: state.hazards.filter(
-      (h) => freshContacts.has(h.id) || dist(h.position, state.boat.position) <= CAPTAIN.visualRange + h.radius,
+      (h) => freshContacts.has(h.id) || dist(h.position, state.boat.position) <= options.visualRange + h.radius,
     ),
     current: state.weather.current,
     stormIntensity: state.weather.stormIntensity,
     shieldActive,
   };
+}
+
+/**
+ * VERSUS ONLY (contract versus-2, VersusCaptainView.survivor): the survivor's position once their
+ * rescue ring reaches the Driver's lookout circle, the same "any part in range" rule as hazards.
+ * The ring (not the point) matters: the versus lookout is smaller than the rescue radius, so a
+ * point rule would rescue the person before the Driver could ever see them. Co-op never calls this.
+ */
+export function getCaptainSurvivor(state: GameState, visualRange: number): Vec2 | null {
+  const { position, rescueRadius } = state.target;
+  return dist(position, state.boat.position) <= visualRange + rescueRadius ? { ...position } : null;
 }
 
 export function getSonarView(state: GameState): SonarView {
